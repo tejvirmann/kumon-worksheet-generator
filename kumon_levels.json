@@ -5,7 +5,9 @@
     "topics": [
       "Counting to 10",
       "Number recognition 1-10",
-      "Tracing numbers"
+      "Tracing numbers",
+      "Connecting dots to 10",
+      "Reading numbers up to 10"
     ],
     "layout_style": "large_spaced"
   },
@@ -15,7 +17,9 @@
     "topics": [
       "Line drawing",
       "Number puzzles to 50",
-      "Number sequencing"
+      "Number sequencing",
+      "Number patterns",
+      "Identifying numbers 1-50"
     ],
     "layout_style": "large_spaced"
   },
@@ -24,7 +28,9 @@
     "category": "Preschool",
     "topics": [
       "Reciting and writing numbers up to 50",
-      "Number recognition 1-50"
+      "Number recognition 1-50",
+      "Number sequencing up to 50",
+      "Counting backwards from 50"
     ],
     "layout_style": "large_spaced"
   },
@@ -34,7 +40,9 @@
     "topics": [
       "Numbers up to 120",
       "Adding up to 3",
-      "Basic counting sequences"
+      "Basic counting sequences",
+      "Number patterns 1-120",
+      "Sequential counting"
     ],
     "layout_style": "large_spaced"
   },
@@ -43,7 +51,10 @@
     "category": "Preschool",
     "topics": [
       "Adding up to 10",
-      "Horizontal addition"
+      "Horizontal addition",
+      "Number bonds to 10",
+      "Simple addition patterns",
+      "Counting on addition"
     ],
     "layout_style": "large_spaced"
   },
@@ -53,7 +64,9 @@
     "topics": [
       "Horizontal addition up to 20",
       "Horizontal subtraction from numbers up to 20",
-      "Number bonds"
+      "Number bonds",
+      "Addition and subtraction within 20",
+      "Mental math strategies"
     ],
     "layout_style": "medium_spaced"
   },
@@ -64,7 +77,10 @@
       "Vertical addition",
       "Vertical subtraction",
       "Multiplication tables (1-10)",
-      "Single-digit multiplication"
+      "Single-digit multiplication",
+      "Two-digit addition with carrying",
+      "Two-digit subtraction with borrowing",
+      "Multiplication facts 1-10"
     ],
     "layout_style": "medium_spaced"
   },
@@ -75,7 +91,10 @@
       "Basic multiplication",
       "Basic division",
       "Multiplication facts",
-      "Division facts"
+      "Division facts",
+      "Multiplication of 2-digit numbers",
+      "Division with remainders",
+      "Word problems multiplication"
     ],
     "layout_style": "medium_spaced"
   },
@@ -86,7 +105,11 @@
       "Long multiplication",
       "Long division",
       "Introduction to fractions",
-      "Multi-digit operations"
+      "Multi-digit operations",
+      "Multiplying 2-digit by 2-digit numbers",
+      "Dividing multi-digit numbers",
+      "Equivalent fractions",
+      "Simplifying fractions"
     ],
     "layout_style": "medium_compact"
   },
@@ -98,7 +121,11 @@
       "Subtracting fractions",
       "Multiplying fractions",
       "Dividing fractions",
-      "Mixed numbers"
+      "Mixed numbers",
+      "Adding and subtracting mixed numbers",
+      "Multiplying mixed numbers",
+      "Dividing mixed numbers",
+      "Fraction word problems"
     ],
     "layout_style": "medium_compact"
   },
@@ -109,7 +136,12 @@
       "Four operations of fractions",
       "Decimals",
       "Decimal operations",
-      "Fraction-decimal conversion"
+      "Fraction-decimal conversion",
+      "Adding decimals",
+      "Subtracting decimals",
+      "Multiplying decimals",
+      "Dividing decimals",
+      "Decimal and fraction operations"
     ],
     "layout_style": "medium_compact"
   },
@@ -121,7 +153,11 @@
       "Exponents",
       "Algebraic expressions",
       "Pre-algebra",
-      "Order of operations"
+      "Order of operations",
+      "Adding and subtracting integers",
+      "Multiplying and dividing integers",
+      "Evaluating expressions",
+      "Simplifying algebraic expressions"
     ],
     "layout_style": "compact"
   },
@@ -134,7 +170,10 @@
       "Inequalities",
       "Functions and graphs",
       "Slope and intercept",
-      "Graphing linear equations"
+      "Graphing linear equations",
+      "Solving systems of equations",
+      "Linear inequalities",
+      "Word problems with linear equations"
     ],
     "layout_style": "compact"
   },
@@ -146,7 +185,11 @@
       "Square roots",
       "Quadratic equations",
       "Pythagorean theorem",
-      "Factoring polynomials"
+      "Factoring polynomials",
+      "Solving quadratic equations",
+      "Quadratic formula",
+      "Radical expressions",
+      "Applications of quadratic equations"
     ],
     "layout_style": "compact"
   },
@@ -157,7 +200,12 @@
       "Advanced algebra",
       "Rational expressions",
       "Systems of equations",
-      "Complex numbers"
+      "Complex numbers",
+      "Simplifying rational expressions",
+      "Adding and subtracting rational expressions",
+      "Multiplying and dividing rational expressions",
+      "Rational equations",
+      "Polynomial operations"
     ],
     "layout_style": "compact"
   },
@@ -169,7 +217,11 @@
       "Fractional functions",
       "Irrational functions",
       "Exponential functions",
-      "Function transformations"
+      "Function transformations",
+      "Graphing quadratic functions",
+      "Rational functions",
+      "Inverse functions",
+      "Function composition"
     ],
     "layout_style": "compact"
   },
@@ -181,7 +233,11 @@
       "Basic limits",
       "Derivatives",
       "Integrals",
-      "Applications of derivatives and integrals"
+      "Applications of derivatives and integrals",
+      "Limits and continuity",
+      "Differentiation rules",
+      "Integration techniques",
+      "Applications of calculus"
     ],
     "layout_style": "compact"
   },
@@ -192,7 +248,11 @@
       "Trigonometry",
       "Straight lines",
       "Equation of circles",
-      "Trigonometric functions"
+      "Trigonometric functions",
+      "Trigonometric identities",
+      "Solving trigonometric equations",
+      "Inverse trigonometric functions",
+      "Law of sines and cosines"
     ],
     "layout_style": "compact"
   },
@@ -203,7 +263,11 @@
       "Loci",
       "Limits of functions",
       "Sequences",
-      "Differentiation"
+      "Differentiation",
+      "Series",
+      "Convergence and divergence",
+      "Taylor series",
+      "Advanced differentiation techniques"
     ],
     "layout_style": "compact"
   },
@@ -214,9 +278,12 @@
       "Advanced differentiation",
       "Integration",
       "Applications of calculus",
-      "Differential equations"
+      "Differential equations",
+      "Multiple integration",
+      "Partial derivatives",
+      "Vector calculus",
+      "Advanced integration techniques"
     ],
     "layout_style": "compact"
   }
 }
-

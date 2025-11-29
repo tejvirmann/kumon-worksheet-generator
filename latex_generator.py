@@ -171,9 +171,12 @@ class LaTeXWorksheetGenerator:
 % Compile with: xelatex or lualatex
 
 \\documentclass[12pt]{{article}}
-\\usepackage[paper=letterpaper,top=0.3in,bottom=0.75in,left=0.75in,right=0.75in]{{geometry}}
+\\usepackage[paper=letterpaper,top=0.15in,bottom=0.75in,left=0.75in,right=0.75in]{{geometry}}
 \\setlength{{\\topskip}}{{0pt}}
 \\setlength{{\\parskip}}{{0pt}}
+\\setlength{{\\topmargin}}{{0pt}}
+\\setlength{{\\headheight}}{{0pt}}
+\\setlength{{\\headsep}}{{0pt}}
 \\usepackage{{fontspec}}
 \\usepackage{{amsmath}}
 \\usepackage{{enumitem}}
@@ -205,10 +208,10 @@ class LaTeXWorksheetGenerator:
 
 % ==================== FRONT PAGE ====================
 
-% Header: Logo and level identifier (top-left) - at top of page, no extra spacing
+% Header: Logo and level identifier (top-left) - at very top of page
 \\noindent
 \\begin{{minipage}}[t]{{0.25\\textwidth}}
-{{\\kumonlogo\\fontsize{{18}}{{22}}\\selectfont\\textcolor{{kumonpurple}}{{KUMON\\textregistered}}}}\\\\[1pt]
+{{\\kumonlogo\\fontsize{{18}}{{22}}\\selectfont\\textcolor{{kumonpurple}}{{KUMON\\textregistered}}}}\\\\[0pt]
 {{\\kumonlevel\\fontsize{{14}}{{18}}\\selectfont\\textcolor{{kumonpurple}}{{{self.escape_latex(front_page_id)}}}}}
 \\end{{minipage}}
 \\hfill
@@ -222,12 +225,12 @@ class LaTeXWorksheetGenerator:
 {{\\kumonfont\\fontsize{{10}}{{12}}\\selectfont\\textcolor{{kumonpurple}}{{{level}}}}}
 \\end{{minipage}}
 
-\\vspace{{0.05in}}
+\\vspace{{0.02in}}
 
-% Student information fields - Arial regular weight (not bold)
+% Student information fields - Arial regular weight (not bold) - moved up
 \\noindent{{\\sffamily\\fontsize{{11}}{{13}}\\selectfont Time : \\underline{{\\hspace{{2cm}}}} to : \\underline{{\\hspace{{1.5cm}}}} \\quad Date: \\underline{{\\hspace{{2cm}}}} \\quad Name: \\underline{{\\hspace{{3cm}}}}}}
 
-\\vspace{{0.08in}}
+\\vspace{{0.06in}}
 
 % Performance tracking table - percentages bold, mistake labels regular/small
 \\begin{{center}}
@@ -299,15 +302,16 @@ class LaTeXWorksheetGenerator:
         return latex
     
     def _generate_single_column_problems(self, problems, font_size, spacing, start_num=1):
-        """Generate single-column problem list"""
-        latex = "\\begin{enumerate}[label=(\\arabic*),leftmargin=*,itemsep=" + spacing + ",topsep=0pt]\n"
+        """Generate single-column problem list with proper formatting"""
+        latex = "\\begin{enumerate}[label=(\\arabic*),leftmargin=*,itemsep=" + spacing + ",topsep=0pt,labelsep=0.3em]\n"
         
         for i, problem in enumerate(problems):
             problem_num = start_num + i
             # Format math in problem
             formatted_problem = self.format_math(problem)
             escaped_problem = self.escape_latex(formatted_problem)
-            latex += f"    \\item{{\\fontsize{{{font_size}}}{{{font_size*1.2}}}\\selectfont {escaped_problem}}}\n"
+            # Use Arial font (sans-serif) for problems, with proper spacing
+            latex += f"    \\item{{\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}}}\n"
         
         latex += "\\end{enumerate}\n"
         return latex
@@ -327,20 +331,22 @@ class LaTeXWorksheetGenerator:
         for i, problem in enumerate(left_problems):
             formatted_problem = self.format_math(problem)
             escaped_problem = self.escape_latex(formatted_problem)
-            latex += f"    \\item{{\\fontsize{{{font_size}}}{{{font_size*1.2}}}\\selectfont {escaped_problem}}}\n"
+            # Use Arial font (sans-serif) for problems
+            latex += f"    \\item{{\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}}}\n"
         
         latex += "\\end{enumerate}\n"
         latex += "\\end{minipage}\n"
         latex += "\\hfill\n"
         latex += "\\begin{minipage}[t]{0.48\\textwidth}\n"
-        latex += "\\begin{enumerate}[label=(\\arabic*),leftmargin=*,itemsep=" + spacing + ",topsep=0pt,start=" + str(start_num + len(left_problems)) + "]\n"
+        latex += "\\begin{enumerate}[label=(\\arabic*),leftmargin=*,itemsep=" + spacing + ",topsep=0pt,labelsep=0.3em,start=" + str(start_num + len(left_problems)) + "]\n"
         
         # Right column problems  
         for i, problem in enumerate(right_problems):
             formatted_problem = self.format_math(problem)
             escaped_problem = self.escape_latex(formatted_problem)
             problem_num = start_num + len(left_problems) + i
-            latex += f"    \\item{{\\fontsize{{{font_size}}}{{{font_size*1.2}}}\\selectfont {escaped_problem}}}\n"
+            # Use Arial font (sans-serif) for problems
+            latex += f"    \\item{{\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}}}\n"
         
         latex += "\\end{enumerate}\n"
         latex += "\\end{minipage}\n"

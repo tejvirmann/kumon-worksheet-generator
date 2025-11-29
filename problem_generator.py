@@ -62,26 +62,9 @@ class ProblemGenerator:
         Returns:
             List of problem strings
         """
-        prompt = f"""You are generating {num_problems} Kumon-style math problems for Level {level}, topic: {topic}.
-
-CRITICAL REQUIREMENTS:
-- Generate ACTUAL math problems, NOT placeholders like "Problem 1" or "Solve this"
-- Each problem must be a complete, solvable mathematical expression
-- Problems should follow Kumon's incremental difficulty approach
-- Format problems exactly as they would appear on a Kumon worksheet
-- Use appropriate notation for the level (e.g., vertical format for Level B multiplication like "  3\\n× 4\\n---")
-- Problems should progress in small, manageable steps
-- Return ONLY the problems, one per line, with NO numbering, NO explanations, NO labels
-- For algebra problems, include the full equation (e.g., "(x - 3) / 2 - (x - 5) / 6 =")
-- For multiplication, show the actual multiplication (e.g., "3 × 4 =")
-
-Example output format:
-3 × 4 =
-5 × 7 =
-(x - 3) / 2 - (x - 5) / 6 =
-2x + 5 = 11
-
-Generate {num_problems} problems now:"""
+        # Create topic-specific prompt with detailed instructions
+        prompt = self._create_topic_specific_prompt(level, topic, num_problems)
+        
 
         try:
             response = self.client.chat.completions.create(
@@ -90,8 +73,8 @@ Generate {num_problems} problems now:"""
                     {"role": "system", "content": "You are an expert at creating Kumon-style math problems that follow their structured, incremental approach."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1000
+                temperature=0.8,
+                max_tokens=1500
             )
             
             problems_text = response.choices[0].message.content.strip()
@@ -146,6 +129,111 @@ Generate {num_problems} problems now:"""
                 print("\nUsing fallback problem generator for now...\n")
             
             return self._generate_fallback_problems(level, topic, num_problems)
+    
+    def _create_topic_specific_prompt(self, level, topic, num_problems):
+        """Create a detailed, topic-specific prompt for better problem generation"""
+        topic_lower = topic.lower()
+        
+        # Topic-specific examples and instructions
+        topic_instructions = {
+            "multiplication tables": f"""
+TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
+- Generate multiplication problems from the {topic} range
+- Start with easier facts (like 2×3, 3×2) and gradually increase difficulty
+- Mix up the order - don't just do tables sequentially
+- Include problems like: 3 × 4 =, 7 × 8 =, 5 × 9 =
+- Make problems interesting with variety in difficulty progression
+- Use horizontal format: "3 × 4 ="
+""",
+            "multiplication": f"""
+TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
+- Generate single-digit multiplication problems appropriate for Level {level}
+- Progress from easier (like 2×3) to harder (like 9×8)
+- Use horizontal format: "4 × 7 ="
+- Make problems varied and engaging, not just sequential tables
+""",
+            "addition": f"""
+TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
+- Generate addition problems appropriate for Level {level}
+- For Level B: vertical addition with carrying (e.g., "  23\n+ 45\n----")
+- For Level A: horizontal addition up to 20 (e.g., "7 + 9 =")
+- Progress in small increments of difficulty
+- Make problems interesting with number patterns
+""",
+            "subtraction": f"""
+TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
+- Generate subtraction problems appropriate for Level {level}
+- For Level B: vertical subtraction with borrowing
+- For Level A: horizontal subtraction from numbers up to 20
+- Ensure all problems have positive results (no negative numbers)
+- Progress from easier to harder problems
+""",
+            "linear equations": f"""
+TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
+- Generate linear equations in one variable: ax + b = c
+- Start simple (e.g., "2x + 3 = 11") and progress to more complex
+- Include equations with fractions: "(x - 3) / 2 = 5"
+- Include equations requiring distribution: "3(x + 2) = 15"
+- End with "=" (not "?" or "solve for x")
+- Make problems progressively more interesting and challenging
+""",
+            "simultaneous equations": f"""
+TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
+- Generate systems of two linear equations
+- Format: "2x + 3y = 11\nx - y = 1"
+- Start with simple integer solutions
+- Progress to more complex coefficients
+- Each problem should be two equations separated by newline
+""",
+            "fractions": f"""
+TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
+- Generate fraction operation problems appropriate for Level {level}
+- For adding: "1/3 + 2/5 ="
+- For subtracting: "5/6 - 1/4 ="
+- For multiplying: "2/3 × 3/4 ="
+- For dividing: "3/4 ÷ 1/2 ="
+- Use proper fraction notation with horizontal bars
+- Progress from like denominators to unlike denominators
+""",
+            "quadratic": f"""
+TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
+- Generate quadratic equations or functions
+- Format equations: "x² + 5x + 6 = 0" or "x² - 4x + 3 = 0"
+- Include problems requiring factoring: "(x + 2)(x + 3) ="
+- Progress from simple to complex
+- Use proper mathematical notation
+""",
+        }
+        
+        # Find matching instruction
+        instruction = ""
+        for key in topic_instructions:
+            if key in topic_lower:
+                instruction = topic_instructions[key]
+                break
+        
+        base_prompt = f"""You are generating {num_problems} Kumon-style math problems for Level {level}, topic: "{topic}".
+
+CRITICAL REQUIREMENTS:
+- Generate ACTUAL, SPECIFIC math problems that directly relate to the topic "{topic}"
+- Each problem must be a complete, solvable mathematical expression
+- Problems must be TOPIC-SPECIFIC - they must clearly demonstrate the topic "{topic}"
+- Follow Kumon's incremental difficulty approach - start easier, gradually increase
+- Format problems exactly as they would appear on a Kumon worksheet
+- Make problems INTERESTING and VARIED - don't just repeat the same pattern
+- Return ONLY the problems, one per line, with NO numbering, NO explanations, NO labels
+- Use appropriate mathematical notation for Level {level}
+{instruction}
+EXAMPLE OUTPUT FORMAT (adapt to your topic):
+3 × 4 =
+7 × 9 =
+5 × 8 =
+6 × 7 =
+
+Generate {num_problems} SPECIFIC, TOPIC-RELATED, INTERESTING problems for "{topic}" now. 
+Each problem must clearly relate to the topic and be progressively more challenging:"""
+        
+        return base_prompt
     
     def _generate_fallback_problems(self, level, topic, num_problems):
         """Generate basic problems as fallback"""
