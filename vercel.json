@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "app.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
     }
   ],
   "routes": [
@@ -14,6 +17,7 @@
   ],
   "env": {
     "FLASK_ENV": "production"
-  }
+  },
+  "buildCommand": "bash install_tectonic.sh && pip install -r requirements.txt"
 }
 

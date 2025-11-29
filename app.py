@@ -112,15 +112,53 @@ def generate_print_layout():
         return jsonify({"error": "Worksheet filename is required"}), 400
     
     try:
-        from print_layout import PrintLayoutGenerator
-        
         worksheet_path = os.path.join('output', worksheet_filename)
         if not os.path.exists(worksheet_path):
             return jsonify({"error": "Worksheet file not found"}), 404
         
-        # Generate print layout
-        layout_gen = PrintLayoutGenerator()
-        print_path = layout_gen.create_2up_print_layout(worksheet_path)
+        # Try LaTeX first, fallback to ReportLab with pdf2image
+        print_path = None
+        last_error = None
+        
+        # Try LaTeX first
+        try:
+            from latex_print_layout import LaTeXPrintLayoutGenerator
+            layout_gen = LaTeXPrintLayoutGenerator()
+            print_path = layout_gen.create_2up_print_layout(worksheet_path)
+        except Exception as latex_error:
+            last_error = latex_error
+            # Fallback to ReportLab-based print layout (requires pdf2image)
+            print(f"LaTeX print layout failed: {latex_error}, trying ReportLab fallback...")
+            try:
+                from print_layout import PrintLayoutGenerator
+                layout_gen = PrintLayoutGenerator()
+                print_path = layout_gen.create_2up_print_layout(worksheet_path)
+            except Exception as reportlab_error:
+                last_error = reportlab_error
+                error_str = str(reportlab_error)
+                
+                # Provide helpful error message
+                if "pdf2image" in error_str or "poppler" in error_str.lower():
+                    error_msg = (
+                        "Print layout generation failed. The ReportLab fallback requires pdf2image.\n\n"
+                        "To fix, choose one:\n\n"
+                        "Option 1 (Recommended): Install LaTeX for best quality:\n"
+                        "  brew install --cask mactex\n\n"
+                        "Option 2: Install pdf2image for ReportLab fallback:\n"
+                        "  pip install pdf2image\n"
+                        "  brew install poppler\n\n"
+                        f"Original error: {error_str}"
+                    )
+                else:
+                    error_msg = (
+                        f"Print layout generation failed.\n\n"
+                        f"Error: {error_str}\n\n"
+                        f"Try installing LaTeX: brew install --cask mactex"
+                    )
+                raise RuntimeError(error_msg)
+        
+        if print_path is None:
+            raise RuntimeError("Failed to generate print layout")
         
         # Read PDF as base64
         import base64
@@ -135,11 +173,6 @@ def generate_print_layout():
             "pdf_data": pdf_data
         })
         
-    except ImportError as e:
-        return jsonify({
-            "error": "Print layout requires pdf2image. Install with: pip install pdf2image",
-            "details": str(e)
-        }), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

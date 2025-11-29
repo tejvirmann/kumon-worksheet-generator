@@ -11,6 +11,13 @@ import shutil
 from datetime import datetime
 import json
 
+# Try to ensure Tectonic is available (for serverless/Vercel)
+try:
+    from tectonic_setup import ensure_tectonic
+    TECTONIC_AVAILABLE = True
+except ImportError:
+    TECTONIC_AVAILABLE = False
+
 class LaTeXWorksheetGenerator:
     """Generate Kumon worksheets using LaTeX for perfect typography"""
     
@@ -166,17 +173,19 @@ class LaTeXWorksheetGenerator:
 \\usepackage{{xcolor}}
 \\usepackage{{graphicx}}
 \\usepackage{{array}}
+\\usepackage{{iftex}}
 
 % Fonts matching Kumon style (ChatGPT recommendations)
-% Logo: Futura Rounded or Avenir Next Rounded (fallback to Helvetica Bold)
-% Headings: Helvetica Neue / Arial
-% Body: Times New Roman / TeX Gyre Termes for instructions
-% Problems: Helvetica/Arial
-\\setsansfont{{Helvetica}}[BoldFont={{Helvetica-Bold}}]
+% Kumon uses Arial for most text - this matches exactly
+\\setsansfont{{Arial}}[BoldFont={{Arial-Bold}}, BoldItalicFont={{Arial-BoldItalic}}]
 \\setmainfont{{Times New Roman}}
-\\newfontfamily{{\\kumonfont}}{{Helvetica}}[BoldFont={{Helvetica-Bold}}]
-\\newfontfamily{{\\kumonlogo}}{{Helvetica-Bold}}  % Logo font - Futura Rounded fallback
-\\newfontfamily{{\\kumonlevel}}{{Helvetica-Bold}}  % Level identifier - Futura/Avenir fallback
+\\newfontfamily{{\\kumonfont}}{{Arial}}[BoldFont={{Arial-Bold}}]
+
+% Logo uses Futura Rounded or Avenir Next Rounded (fallback to Arial Bold)
+\\newfontfamily{{\\kumonlogo}}{{Arial-Bold}}  % Futura Rounded / Avenir Next Rounded if available
+
+% Level identifier uses Futura or Avenir (fallback to Arial Bold)
+\\newfontfamily{{\\kumonlevel}}{{Arial-Bold}}  % Futura / Avenir if available
 
 % Colors
 \\definecolor{{kumonpurple}}{{{header_rgb}}}
@@ -332,7 +341,7 @@ class LaTeXWorksheetGenerator:
     
     def _compile_latex(self, tex_path, output_dir):
         """Compile LaTeX file to PDF"""
-        # Try xelatex first, fallback to pdflatex
+        # Try Tectonic first (for Vercel/serverless), then xelatex, then pdflatex
         tex_dir = os.path.dirname(tex_path)
         tex_basename = os.path.basename(tex_path)
         tex_name = os.path.splitext(tex_basename)[0]
@@ -342,7 +351,36 @@ class LaTeXWorksheetGenerator:
         try:
             os.chdir(tex_dir)
             
-            # Try XeLaTeX first (better for custom fonts)
+            # Try Tectonic first (best for serverless/Vercel)
+            if TECTONIC_AVAILABLE:
+                try:
+                    tectonic_cmd = ensure_tectonic()
+                    result = subprocess.run(
+                        [tectonic_cmd, '-X', 'compile', tex_basename, '--outdir', '.'],
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+                    if result.returncode == 0:
+                        return
+                except Exception as e:
+                    # Silently fail and try next compiler
+                    pass
+            
+            # Also try 'tectonic' directly in PATH
+            try:
+                result = subprocess.run(
+                    ['tectonic', '-X', 'compile', tex_basename, '--outdir', '.'],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                if result.returncode == 0:
+                    return
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
+            
+            # Try XeLaTeX (better for custom fonts, local development)
             try:
                 result = subprocess.run(
                     ['xelatex', '-interaction=nonstopmode', '-output-directory=.', tex_basename],
@@ -367,9 +405,10 @@ class LaTeXWorksheetGenerator:
                     raise RuntimeError(f"LaTeX compilation failed: {result.stderr}")
             except FileNotFoundError:
                 raise RuntimeError(
-                    "No LaTeX compiler found. Install XeLaTeX or pdflatex.\n"
-                    "macOS: brew install --cask mactex\n"
-                    "Linux: sudo apt-get install texlive-xetex"
+                    "No LaTeX compiler found. Install one of:\n"
+                    "- Tectonic (recommended for serverless): https://tectonic-typesetting.github.io/\n"
+                    "- XeLaTeX (local): brew install --cask mactex\n"
+                    "- pdflatex (local): brew install --cask mactex"
                 )
         finally:
             os.chdir(original_dir)
