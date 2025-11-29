@@ -10,6 +10,7 @@ import tempfile
 import shutil
 from datetime import datetime
 import json
+import re
 
 # Try to ensure Tectonic is available (for serverless/Vercel)
 try:
@@ -60,24 +61,173 @@ class LaTeXWorksheetGenerator:
         return '$'.join(escaped_parts)
     
     def format_math(self, problem_text):
-        """Convert math notation to LaTeX math mode"""
+        """Convert math notation to LaTeX math mode with enhanced support for complex expressions"""
         if not problem_text:
             return ""
+        
+        # Check if problem already contains LaTeX math (indicated by $)
+        has_math_mode = '$' in problem_text
         
         # Convert common math symbols
         problem_text = problem_text.replace('×', r'$\times$')
         problem_text = problem_text.replace('÷', r'$\div$')
         problem_text = problem_text.replace('≤', r'$\leq$')
         problem_text = problem_text.replace('≥', r'$\geq$')
+        problem_text = problem_text.replace('±', r'$\pm$')
+        problem_text = problem_text.replace('≠', r'$\neq$')
         
-        # Handle fractions like "3/4" -> "\frac{3}{4}"
-        import re
-        problem_text = re.sub(r'(\d+)/(\d+)', r'$\\frac{\1}{\2}$', problem_text)
+        # Handle quadratic equations: x², x^2 -> x^{2}
+        problem_text = re.sub(r'([a-zA-Z])\^(\d+)', r'\1^{\2}', problem_text)
+        problem_text = re.sub(r'([a-zA-Z])²', r'\1^{2}', problem_text)
+        problem_text = re.sub(r'([a-zA-Z])³', r'\1^{3}', problem_text)
         
-        # Handle exponents like "x^2" -> "x^2" (LaTeX format)
-        # But preserve if already in math mode
+        # Handle fractions like "3/4" -> "\frac{3}{4}" (but not if already in math mode)
+        if not has_math_mode:
+            # Match fractions in context: (num)/(den) or num/den
+            problem_text = re.sub(r'\((\d+)/(\d+)\)', r'($\\frac{\1}{\2}$)', problem_text)
+            problem_text = re.sub(r'\b(\d+)/(\d+)\b', r'$\\frac{\1}{\2}$', problem_text)
+        
+        # Handle square roots: sqrt(x) -> \sqrt{x}
+        problem_text = re.sub(r'sqrt\(([^)]+)\)', r'$\\sqrt{\1}$', problem_text)
+        
+        # Handle quadratic formula patterns: ax² + bx + c = 0
+        # Wrap entire equations in math mode if they contain mathematical operations
+        if not has_math_mode and (re.search(r'[+\-×÷=<>≤≥]', problem_text) or re.search(r'[a-zA-Z]\d+|[a-zA-Z]²', problem_text)):
+            # Don't double-wrap, but ensure complex expressions are in math mode
+            pass  # Will be handled by problem-specific detection
+        
+        # Handle complex fractions and nested expressions
+        # (x - 3) / 2 -> \frac{x-3}{2}
+        problem_text = re.sub(r'\(([^)]+)\)\s*/\s*(\d+)', r'$\\frac{\1}{\2}$', problem_text)
+        
+        # Handle word problems - leave them as text
+        # If problem contains substantial text (not just math), don't wrap entirely in math mode
+        word_count = len([w for w in problem_text.split() if w.isalpha() and len(w) > 2])
+        if word_count > 3:
+            # Word problem - keep as text with inline math for expressions
+            return problem_text
+        
+        # Wrap entire equation in math mode if it's a pure math expression
+        # This ensures clean, professional math rendering
+        if not has_math_mode and word_count <= 3:
+            # Check if it's a mathematical equation or expression
+            if re.search(r'[=<>≤≥]', problem_text) or re.search(r'[+\-×÷/]', problem_text) or re.search(r'\d+\s*[×÷]', problem_text):
+                # Wrap entire problem in math mode for clean rendering
+                if not problem_text.strip().startswith('$'):
+                    problem_text = f"${problem_text}$"
         
         return problem_text
+    
+    def needs_graph(self, problem_text, topic):
+        """Determine if a problem needs a graph"""
+        problem_lower = problem_text.lower()
+        topic_lower = topic.lower()
+        
+        # Check topic keywords
+        graph_topics = ['graph', 'graphing', 'function', 'parabola', 'quadratic function', 'linear equation graph']
+        if any(keyword in topic_lower for keyword in graph_topics):
+            return True
+        
+        # Check problem text keywords
+        graph_keywords = ['graph', 'plot', 'sketch', 'draw', 'parabola', 'coordinate', 'axis', 'axes']
+        if any(keyword in problem_lower for keyword in graph_keywords):
+            return True
+        
+        # Check for function notation that suggests graphing
+        if re.search(r'y\s*=\s*[^=]+', problem_text) and ('quadratic' in topic_lower or 'function' in topic_lower):
+            return True
+        
+        return False
+    
+    def generate_graph_latex(self, problem_text, topic):
+        """Generate TikZ graph LaTeX code for a problem"""
+        
+        # Try to extract function from problem
+        # Look for y = ... patterns
+        func_match = re.search(r'y\s*=\s*([^=]+)', problem_text, re.IGNORECASE)
+        
+        if not func_match:
+            # Generate a simple coordinate plane if no function found
+            return self._generate_coordinate_plane()
+        
+        function_expr = func_match.group(1).strip()
+        
+        # Check if it's a quadratic function (contains x² or x^2)
+        if re.search(r'x\s*[\^²]\s*2|quadratic', function_expr, re.IGNORECASE):
+            return self._generate_quadratic_graph(function_expr)
+        else:
+            # Assume linear function
+            return self._generate_linear_graph(function_expr)
+    
+    def _generate_coordinate_plane(self):
+        """Generate a professional coordinate plane"""
+        return """\\begin{tikzpicture}[scale=0.9, baseline]
+    % Axes with arrows
+    \\draw[->, thick] (-3.5,0) -- (3.5,0) node[right] {\\small $x$};
+    \\draw[->, thick] (0,-3.5) -- (0,3.5) node[above] {\\small $y$};
+    
+    % Grid (light gray for reference)
+    \\draw[gray!30] (-3,-3) grid (3,3);
+    
+    % Tick marks and labels
+    \\foreach \\x in {-3,-2,-1,1,2,3}
+        \\draw (\\x,0.1) -- (\\x,-0.1) node[below] {\\footnotesize $\\x$};
+    \\foreach \\y in {-3,-2,-1,1,2,3}
+        \\draw (0.1,\\y) -- (-0.1,\\y) node[left] {\\footnotesize $\\y$};
+    
+    % Origin label
+    \\node[below left] at (0,0) {\\tiny $O$};
+\\end{tikzpicture}"""
+    
+    def _generate_linear_graph(self, expression):
+        """Generate professional TikZ code for a linear graph"""
+        return """\\begin{tikzpicture}[scale=0.9, baseline]
+    % Axes
+    \\draw[->, thick] (-3.5,0) -- (3.5,0) node[right] {\\small $x$};
+    \\draw[->, thick] (0,-3.5) -- (0,3.5) node[above] {\\small $y$};
+    
+    % Grid (light gray)
+    \\draw[gray!30] (-3,-3) grid (3,3);
+    
+    % Tick marks and labels
+    \\foreach \\x in {-3,-2,-1,1,2,3}
+        \\draw (\\x,0.1) -- (\\x,-0.1) node[below] {\\footnotesize $\\x$};
+    \\foreach \\y in {-3,-2,-1,1,2,3}
+        \\draw (0.1,\\y) -- (-0.1,\\y) node[left] {\\footnotesize $\\y$};
+    
+    % Origin label
+    \\node[below left] at (0,0) {\\tiny $O$};
+    
+    % Draw sample line: y = x (example - user should complete)
+    \\draw[thick, color=blue!70!black, domain=-3:3] plot (\\x, {\\x});
+\\end{tikzpicture}"""
+    
+    def _generate_quadratic_graph(self, expression):
+        """Generate professional TikZ code for a quadratic graph (parabola)"""
+        return """\\begin{tikzpicture}[scale=0.9, baseline]
+    % Axes
+    \\draw[->, thick] (-3.5,0) -- (3.5,0) node[right] {\\small $x$};
+    \\draw[->, thick] (0,-1.5) -- (0,4.5) node[above] {\\small $y$};
+    
+    % Grid (light gray)
+    \\draw[gray!30] (-3,-1) grid (3,4);
+    
+    % Tick marks and labels
+    \\foreach \\x in {-3,-2,-1,1,2,3}
+        \\draw (\\x,0.1) -- (\\x,-0.1) node[below] {\\footnotesize $\\x$};
+    \\foreach \\y in {-1,1,2,3,4}
+        \\draw (0.1,\\y) -- (-0.1,\\y) node[left] {\\footnotesize $\\y$};
+    
+    % Origin label
+    \\node[below left] at (0,0) {\\tiny $O$};
+    
+    % Draw parabola: y = x² (example - user should adjust)
+    \\draw[thick, color=blue!70!black, domain=-2.5:2.5, samples=100] plot (\\x, {\\x*\\x});
+    
+    % Mark vertex
+    \\filldraw[blue!70!black] (0,0) circle (2pt);
+    \\node[above right] at (0,0) {\\tiny $(0,0)$};
+\\end{tikzpicture}"""
     
     def generate_pdf(self, problems, level, topic, layout_style='medium_spaced', page_number=1, output_dir='output'):
         """
@@ -208,29 +358,24 @@ class LaTeXWorksheetGenerator:
 
 % ==================== FRONT PAGE ====================
 
-% Header: Logo and level identifier (top-left) - at very top of page
+% Header: All elements on one horizontal line
 \\noindent
-\\begin{{minipage}}[t]{{0.25\\textwidth}}
-{{\\kumonlogo\\fontsize{{18}}{{22}}\\selectfont\\textcolor{{kumonpurple}}{{KUMON\\textregistered}}}}\\\\[0pt]
+\\begin{{minipage}}[t]{{0.18\\textwidth}}
+{{\\kumonlogo\\fontsize{{18}}{{22}}\\selectfont\\textcolor{{kumonpurple}}{{KUMON\\textregistered}}}} \\quad
 {{\\kumonlevel\\fontsize{{14}}{{18}}\\selectfont\\textcolor{{kumonpurple}}{{{self.escape_latex(front_page_id)}}}}}
 \\end{{minipage}}
 \\hfill
-\\begin{{minipage}}[t]{{0.50\\textwidth}}
+\\begin{{minipage}}[t]{{0.45\\textwidth}}
 \\centering
 {{\\kumonfont\\bfseries\\fontsize{{16}}{{20}}\\selectfont\\textcolor{{kumonpurple}}{{{self.escape_latex(topic)}}}}}
 \\end{{minipage}}
 \\hfill
-\\begin{{minipage}}[t]{{0.18\\textwidth}}
+\\begin{{minipage}}[t]{{0.32\\textwidth}}
 \\raggedleft
-{{\\kumonfont\\fontsize{{10}}{{12}}\\selectfont\\textcolor{{kumonpurple}}{{{level}}}}}
+{{\\sffamily\\fontsize{{11}}{{13}}\\selectfont Time : \\underline{{\\hspace{{1.5cm}}}} to : \\underline{{\\hspace{{1.2cm}}}} \\quad Date: \\underline{{\\hspace{{1.5cm}}}} \\quad Name: \\underline{{\\hspace{{2cm}}}}}}
 \\end{{minipage}}
 
-\\vspace{{0.02in}}
-
-% Student information fields - Arial regular weight (not bold) - moved up
-\\noindent{{\\sffamily\\fontsize{{11}}{{13}}\\selectfont Time : \\underline{{\\hspace{{2cm}}}} to : \\underline{{\\hspace{{1.5cm}}}} \\quad Date: \\underline{{\\hspace{{2cm}}}} \\quad Name: \\underline{{\\hspace{{3cm}}}}}}
-
-\\vspace{{0.06in}}
+\\vspace{{0.1in}}
 
 % Performance tracking table - percentages bold, mistake labels regular/small
 \\begin{{center}}
@@ -254,9 +399,9 @@ class LaTeXWorksheetGenerator:
         
         # Add front page problems
         if use_two_columns:
-            latex += self._generate_two_column_problems(front_problems, problem_font_size, problem_spacing, start_num=1)
+            latex += self._generate_two_column_problems(front_problems, problem_font_size, problem_spacing, start_num=1, topic=topic)
         else:
-            latex += self._generate_single_column_problems(front_problems, problem_font_size, problem_spacing, start_num=1)
+            latex += self._generate_single_column_problems(front_problems, problem_font_size, problem_spacing, start_num=1, topic=topic)
         
         # Footer on front page
         latex += """
@@ -282,9 +427,9 @@ class LaTeXWorksheetGenerator:
         
         # Add back page problems
         if use_two_columns:
-            latex += self._generate_two_column_problems(back_problems, problem_font_size, problem_spacing, start_num=len(front_problems) + 1)
+            latex += self._generate_two_column_problems(back_problems, problem_font_size, problem_spacing, start_num=len(front_problems) + 1, topic=topic)
         else:
-            latex += self._generate_single_column_problems(back_problems, problem_font_size, problem_spacing, start_num=len(front_problems) + 1)
+            latex += self._generate_single_column_problems(back_problems, problem_font_size, problem_spacing, start_num=len(front_problems) + 1, topic=topic)
         
         # Footer on back page
         latex += """
@@ -301,23 +446,35 @@ class LaTeXWorksheetGenerator:
         
         return latex
     
-    def _generate_single_column_problems(self, problems, font_size, spacing, start_num=1):
+    def _generate_single_column_problems(self, problems, font_size, spacing, start_num=1, topic=""):
         """Generate single-column problem list with proper formatting"""
         latex = "\\begin{enumerate}[label=(\\arabic*),leftmargin=*,itemsep=" + spacing + ",topsep=0pt,labelsep=0.3em]\n"
         
         for i, problem in enumerate(problems):
             problem_num = start_num + i
-            # Format math in problem
+            # Format math in problem with better typography
             formatted_problem = self.format_math(problem)
             escaped_problem = self.escape_latex(formatted_problem)
-            # Use Arial font (sans-serif) for problems, with proper spacing
-            latex += f"    \\item{{\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}}}\n"
+            
+            # Better formatting: use bold for math equations, professional font sizing
+            if any(char in escaped_problem for char in ['=', '+', '-', '×', '÷', '/', '²', '^', '(', ')']):
+                # It's a math problem - use bold, larger font for clarity
+                item_content = f"\\sffamily\\bfseries\\fontsize{{{font_size + 1}}}{{{int((font_size + 1)*1.2)}}}\\selectfont {escaped_problem}"
+            else:
+                item_content = f"\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}"
+            
+            if self.needs_graph(problem, topic):
+                # Add professional graph below problem with proper spacing
+                graph_code = self.generate_graph_latex(problem, topic)
+                item_content += f"\\\\[0.15in]\n        \\centering\n        {graph_code}"
+            
+            latex += f"    \\item{{{item_content}}}\n"
         
         latex += "\\end{enumerate}\n"
         return latex
     
-    def _generate_two_column_problems(self, problems, font_size, spacing, start_num=1):
-        """Generate two-column problem layout"""
+    def _generate_two_column_problems(self, problems, font_size, spacing, start_num=1, topic=""):
+        """Generate two-column problem layout with graph support"""
         mid = (len(problems) + 1) // 2
         left_problems = problems[:mid]
         right_problems = problems[mid:]
@@ -331,8 +488,19 @@ class LaTeXWorksheetGenerator:
         for i, problem in enumerate(left_problems):
             formatted_problem = self.format_math(problem)
             escaped_problem = self.escape_latex(formatted_problem)
-            # Use Arial font (sans-serif) for problems
-            latex += f"    \\item{{\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}}}\n"
+            
+            # Better formatting: bold for math equations, professional font
+            if any(char in escaped_problem for char in ['=', '+', '-', '×', '÷', '/', '²', '^', '(', ')']):
+                item_content = f"\\sffamily\\bfseries\\fontsize{{{font_size + 1}}}{{{int((font_size + 1)*1.2)}}}\\selectfont {escaped_problem}"
+            else:
+                item_content = f"\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}"
+            
+            if self.needs_graph(problem, topic):
+                # Add professional graph below problem
+                graph_code = self.generate_graph_latex(problem, topic)
+                item_content += f"\\\\[0.15in]\n        \\centering\n        {graph_code}"
+            
+            latex += f"    \\item{{{item_content}}}\n"
         
         latex += "\\end{enumerate}\n"
         latex += "\\end{minipage}\n"
@@ -345,8 +513,19 @@ class LaTeXWorksheetGenerator:
             formatted_problem = self.format_math(problem)
             escaped_problem = self.escape_latex(formatted_problem)
             problem_num = start_num + len(left_problems) + i
-            # Use Arial font (sans-serif) for problems
-            latex += f"    \\item{{\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}}}\n"
+            
+            # Better formatting: bold for math equations, professional font
+            if any(char in escaped_problem for char in ['=', '+', '-', '×', '÷', '/', '²', '^', '(', ')']):
+                item_content = f"\\sffamily\\bfseries\\fontsize{{{font_size + 1}}}{{{int((font_size + 1)*1.2)}}}\\selectfont {escaped_problem}"
+            else:
+                item_content = f"\\sffamily\\fontsize{{{font_size}}}{{{int(font_size*1.15)}}}\\selectfont {escaped_problem}"
+            
+            if self.needs_graph(problem, topic):
+                # Add professional graph below problem
+                graph_code = self.generate_graph_latex(problem, topic)
+                item_content += f"\\\\[0.15in]\n        \\centering\n        {graph_code}"
+            
+            latex += f"    \\item{{{item_content}}}\n"
         
         latex += "\\end{enumerate}\n"
         latex += "\\end{minipage}\n"

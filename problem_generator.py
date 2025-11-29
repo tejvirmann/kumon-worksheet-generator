@@ -12,6 +12,9 @@ load_dotenv()
 
 class ProblemGenerator:
     def __init__(self, model=None):
+        # Reload environment variables to pick up any changes
+        load_dotenv(override=True)
+        
         # Determine provider
         ai_provider = os.getenv('AI_PROVIDER', 'openrouter').lower()
         
@@ -30,6 +33,12 @@ class ProblemGenerator:
                 f"{ai_provider.upper()}_API_KEY environment variable is not set. "
                 "Please set OPENAI_API_KEY or OPENROUTER_API_KEY in your .env file"
             )
+        
+        # Debug: Print API key status (first 10 chars only for security)
+        if api_key:
+            print(f"✓ API key loaded (starts with: {api_key[:10]}...)")
+        else:
+            print("✗ API key not found!")
         
         # Initialize OpenAI client (OpenRouter is OpenAI-compatible)
         # OpenRouter may require additional headers
@@ -66,18 +75,28 @@ class ProblemGenerator:
         prompt = self._create_topic_specific_prompt(level, topic, num_problems)
         
 
+        # Calculate max_tokens dynamically based on number of problems needed
+        # Estimate: ~30 tokens per problem (conservative estimate)
+        # Add 50 tokens buffer for formatting/response overhead
+        estimated_tokens = (num_problems * 30) + 50
+        # Cap at 500 to stay within credit limits, minimum 200 for small requests
+        max_tokens = min(max(estimated_tokens, 200), 500)
+        
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are an expert at creating Kumon-style math problems that follow their structured, incremental approach."},
+                    {"role": "system", "content": "Generate math problems only. No code, explanations, or extra text. Just problems."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.8,
-                max_tokens=1500
+                temperature=0.7,
+                max_tokens=max_tokens
             )
             
             problems_text = response.choices[0].message.content.strip()
+            
+            # Debug: show what AI returned (first 500 chars)
+            print(f"📝 AI returned ({len(problems_text)} chars): {problems_text[:500]}...")
             
             # Clean up the problems - remove numbering, labels, etc.
             lines = problems_text.split('\n')
@@ -88,14 +107,44 @@ class ProblemGenerator:
                     continue
                 # Remove common prefixes like "1. ", "(1) ", "Problem 1: ", etc.
                 import re
-                line = re.sub(r'^(\d+[\.\)\:]|\(?\d+\)|Problem\s+\d+\:?\s*)', '', line, flags=re.IGNORECASE)
+                line = re.sub(r'^(\d+[\.\)\:]\s*|\(?\d+\)\s*|Problem\s+\d+\:?\s*)', '', line, flags=re.IGNORECASE)
                 line = line.strip()
-                # Skip if it's just a placeholder or explanation
-                if line and not any(word in line.lower() for word in ['problem', 'solve', 'find', 'calculate', 'example', 'note']):
+                
+                # Skip empty lines or lines that are clearly not problems
+                if not line or len(line) < 2:
+                    continue
+                
+                # Skip code patterns
+                if line.strip().startswith(('#', '//', '/*', 'def ', 'import ', 'function ', 'print(')):
+                    continue
+                
+                # Skip lines that are clearly explanations (but allow math problems with equations)
+                # Only skip if it's clearly an instruction/explanation, not a math expression
+                skip_patterns = [r'^problem\s+\d+', r'^example\s+\d+', r'^note:', r'^hint:']
+                if any(re.match(pattern, line, re.IGNORECASE) for pattern in skip_patterns):
+                    continue
+                
+                # Accept if it looks like a math problem (has numbers, operators, or = sign)
+                has_math = bool(re.search(r'[\d=+\-×÷/²^()]', line))
+                # Or if it's a reasonable length word problem
+                is_reasonable_length = 5 <= len(line) <= 200
+                
+                if has_math or is_reasonable_length:
                     problems.append(line)
             
-            # Filter out invalid problems
-            valid_problems = [p for p in problems if p and len(p) > 2 and not p.startswith('Problem')]
+            # Filter out invalid problems - be more lenient
+            valid_problems = []
+            for p in problems:
+                if not p or len(p) < 2:
+                    continue
+                # Skip if it's clearly code
+                if any(word in p.lower() for word in ['def ', 'function(', 'return ', 'import ', 'print(', 'def ']):
+                    continue
+                # Accept if it has math content or reasonable length
+                if re.search(r'[\d=+\-×÷/²^()]', p) or (len(p) >= 5 and len(p) <= 200):
+                    valid_problems.append(p)
+            
+            print(f"✅ Parsed {len(valid_problems)} valid problems from AI response")
             
             # If we got good problems, use them; otherwise generate fallback
             if len(valid_problems) >= num_problems:
@@ -113,10 +162,17 @@ class ProblemGenerator:
         except Exception as e:
             # Fallback: Generate simple problems if AI fails
             error_msg = str(e)
-            print(f"Error generating problems with AI: {e}")
+            import traceback
             
-            # Provide helpful error message for 401 errors
-            if "401" in error_msg or "User not found" in error_msg or "authentication" in error_msg.lower():
+            # Log full error details
+            print(f"\n❌ Error generating problems with AI:")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {error_msg}")
+            print(f"\n   Full traceback:")
+            traceback.print_exc()
+            
+            # Provide helpful error message for specific error types
+            if "401" in error_msg or "User not found" in error_msg or "authentication" in error_msg.lower() or "Unauthorized" in error_msg:
                 print("\n⚠️  OpenRouter API Authentication Error!")
                 print("This usually means:")
                 print("  1. Your API key is invalid or expired")
@@ -126,83 +182,54 @@ class ProblemGenerator:
                 print("  1. Check your API key at: https://openrouter.ai/keys")
                 print("  2. Verify your account is active")
                 print("  3. Make sure you have credits in your account")
-                print("\nUsing fallback problem generator for now...\n")
+                print(f"  4. Current API key starts with: {os.getenv('OPENROUTER_API_KEY', 'NOT SET')[:10]}...")
+            elif "402" in error_msg or "credits" in error_msg.lower() or "afford" in error_msg.lower():
+                print("\n⚠️  OpenRouter API Credit Limit Error!")
+                print("You don't have enough credits for this request.")
+                
+                # Try to extract the affordable token amount from error message
+                import re
+                afford_match = re.search(r'can only afford (\d+)', error_msg)
+                if afford_match:
+                    affordable_tokens = int(afford_match.group(1))
+                    print(f"   Your account can afford up to {affordable_tokens} tokens.")
+                    print(f"   Requested: {max_tokens} tokens")
+                    print("   Tip: Try requesting fewer problems to use fewer tokens.")
+                
+                print("\nOptions:")
+                print("  1. Add credits at: https://openrouter.ai/settings/credits")
+                print("  2. Use fallback problem generator (works without API)")
+                print("  3. Request fewer problems to use fewer tokens")
+                print("\nUsing fallback problem generator for now...")
+            elif "429" in error_msg or "rate limit" in error_msg.lower():
+                print("\n⚠️  OpenRouter API Rate Limit Error!")
+                print("You've exceeded the rate limit. Please wait a moment and try again.")
+            elif "500" in error_msg or "502" in error_msg or "503" in error_msg:
+                print("\n⚠️  OpenRouter API Server Error!")
+                print("OpenRouter's servers are experiencing issues. Please try again later.")
+            else:
+                print(f"\n⚠️  Unknown API Error: {error_msg}")
+            
+            print("\nUsing fallback problem generator for now...\n")
             
             return self._generate_fallback_problems(level, topic, num_problems)
     
     def _create_topic_specific_prompt(self, level, topic, num_problems):
-        """Create a detailed, topic-specific prompt for better problem generation"""
+        """Create a detailed, topic-specific prompt for better problem generation - emphasizing difficulty"""
         topic_lower = topic.lower()
         
-        # Topic-specific examples and instructions
+        # Topic-specific examples and instructions - MAKE PROBLEMS DIFFICULT
         topic_instructions = {
-            "multiplication tables": f"""
-TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
-- Generate multiplication problems from the {topic} range
-- Start with easier facts (like 2×3, 3×2) and gradually increase difficulty
-- Mix up the order - don't just do tables sequentially
-- Include problems like: 3 × 4 =, 7 × 8 =, 5 × 9 =
-- Make problems interesting with variety in difficulty progression
-- Use horizontal format: "3 × 4 ="
-""",
-            "multiplication": f"""
-TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
-- Generate single-digit multiplication problems appropriate for Level {level}
-- Progress from easier (like 2×3) to harder (like 9×8)
-- Use horizontal format: "4 × 7 ="
-- Make problems varied and engaging, not just sequential tables
-""",
-            "addition": f"""
-TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
-- Generate addition problems appropriate for Level {level}
-- For Level B: vertical addition with carrying (e.g., "  23\n+ 45\n----")
-- For Level A: horizontal addition up to 20 (e.g., "7 + 9 =")
-- Progress in small increments of difficulty
-- Make problems interesting with number patterns
-""",
-            "subtraction": f"""
-TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
-- Generate subtraction problems appropriate for Level {level}
-- For Level B: vertical subtraction with borrowing
-- For Level A: horizontal subtraction from numbers up to 20
-- Ensure all problems have positive results (no negative numbers)
-- Progress from easier to harder problems
-""",
-            "linear equations": f"""
-TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
-- Generate linear equations in one variable: ax + b = c
-- Start simple (e.g., "2x + 3 = 11") and progress to more complex
-- Include equations with fractions: "(x - 3) / 2 = 5"
-- Include equations requiring distribution: "3(x + 2) = 15"
-- End with "=" (not "?" or "solve for x")
-- Make problems progressively more interesting and challenging
-""",
-            "simultaneous equations": f"""
-TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
-- Generate systems of two linear equations
-- Format: "2x + 3y = 11\nx - y = 1"
-- Start with simple integer solutions
-- Progress to more complex coefficients
-- Each problem should be two equations separated by newline
-""",
-            "fractions": f"""
-TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
-- Generate fraction operation problems appropriate for Level {level}
-- For adding: "1/3 + 2/5 ="
-- For subtracting: "5/6 - 1/4 ="
-- For multiplying: "2/3 × 3/4 ="
-- For dividing: "3/4 ÷ 1/2 ="
-- Use proper fraction notation with horizontal bars
-- Progress from like denominators to unlike denominators
-""",
-            "quadratic": f"""
-TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
-- Generate quadratic equations or functions
-- Format equations: "x² + 5x + 6 = 0" or "x² - 4x + 3 = 0"
-- Include problems requiring factoring: "(x + 2)(x + 3) ="
-- Progress from simple to complex
-- Use proper mathematical notation
-""",
+            "multiplication tables": f"- Challenging multiplication 1-10. Increase difficulty. Format: 7 × 8 = (one per line)\n",
+            "multiplication": f"- Difficult multi-digit multiplication. Format: 47 × 39 = or more complex\n",
+            "addition": f"- Complex addition with carrying. Level {level}. Format: 347 + 289 = or vertical if Level B\n",
+            "subtraction": f"- Challenging subtraction with borrowing. Level {level}. Format: 534 - 267 =\n",
+            "linear equations": f"- Complex linear equations: 3x + 7 = 2x - 5 or 2(x + 3) = 4x - 1. Increase difficulty progressively. End with =\n",
+            "simultaneous equations": f"- Challenging systems. Format: 3x + 2y = 11\\n2x - y = 3\n",
+            "fractions": f"- Complex fraction operations. Format: 2/3 + 5/6 = or 3/4 × 8/9 =\n",
+            "quadratic": f"- Advanced quadratic equations: x² - 7x + 10 = 0 or y = 2(x - 3)² + 5. Increase complexity.\n",
+            "word problem": f"- Challenging word problems. Multi-step, realistic scenarios. Level {level}.\n",
+            "graph": f"- Advanced graph problems: Graph y = -x² + 4x - 3 or Graph y = 3x + 2. Graphs auto-generated.\n",
         }
         
         # Find matching instruction
@@ -212,26 +239,23 @@ TOPIC-SPECIFIC REQUIREMENTS for "{topic}":
                 instruction = topic_instructions[key]
                 break
         
-        base_prompt = f"""You are generating {num_problems} Kumon-style math problems for Level {level}, topic: "{topic}".
+        # Streamlined prompt - no code, just problems - MAKE THEM DIFFICULT
+        base_prompt = f"""Generate {num_problems} CHALLENGING math problems for Level {level}, topic: {topic}.
 
-CRITICAL REQUIREMENTS:
-- Generate ACTUAL, SPECIFIC math problems that directly relate to the topic "{topic}"
-- Each problem must be a complete, solvable mathematical expression
-- Problems must be TOPIC-SPECIFIC - they must clearly demonstrate the topic "{topic}"
-- Follow Kumon's incremental difficulty approach - start easier, gradually increase
-- Format problems exactly as they would appear on a Kumon worksheet
-- Make problems INTERESTING and VARIED - don't just repeat the same pattern
-- Return ONLY the problems, one per line, with NO numbering, NO explanations, NO labels
-- Use appropriate mathematical notation for Level {level}
+CRITICAL: Make these problems DIFFICULT and appropriately challenging for Level {level}.
+
+Rules:
+- Output ONLY problems, one per line, no numbering/explanations
+- Problems should be CHALLENGING and require thought
+- Start moderately difficult, then increase to very difficult
+- Topic: {topic}
 {instruction}
-EXAMPLE OUTPUT FORMAT (adapt to your topic):
-3 × 4 =
-7 × 9 =
-5 × 8 =
-6 × 7 =
+Format examples:
+47 × 39 =
+347 + 289 =
+3x + 7 = 2x - 5
 
-Generate {num_problems} SPECIFIC, TOPIC-RELATED, INTERESTING problems for "{topic}" now. 
-Each problem must clearly relate to the topic and be progressively more challenging:"""
+Generate {num_problems} CHALLENGING problems now:"""
         
         return base_prompt
     

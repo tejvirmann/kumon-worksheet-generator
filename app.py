@@ -54,7 +54,7 @@ def generate_worksheet():
         return jsonify({"error": "Level and topic are required"}), 400
     
     try:
-        # Generate problems using AI
+        # Generate problems using AI (make them difficult)
         problem_gen = ProblemGenerator()
         problems = problem_gen.generate_problems(
             level=level,
@@ -62,20 +62,31 @@ def generate_worksheet():
             num_problems=num_problems
         )
         
-        # Generate worksheet using LaTeX
+        # Use AI to determine optimal layout for these problems
         try:
-            worksheet_gen = LaTeXWorksheetGenerator()
+            from layout_generator import LayoutGenerator
+            layout_gen = LayoutGenerator()
+            layout_spec = layout_gen.generate_layout_spec(problems, level, topic, num_problems)
+            print(f"✅ AI Layout Spec: {layout_spec.get('justification', 'N/A')}")
+        except Exception as layout_error:
+            print(f"⚠️  Layout generation failed: {layout_error}, using defaults")
+            layout_spec = None
+        
+        # Generate worksheet using ReportLab (efficient, fast)
+        try:
+            worksheet_gen = WorksheetGenerator()
             layout_style = KUMON_LEVELS[level]["layout_style"]
             pdf_path = worksheet_gen.generate_pdf(
                 problems=problems,
                 level=level,
                 topic=topic,
-                layout_style=layout_style
+                layout_style=layout_style,
+                layout_spec=layout_spec  # Pass AI-generated layout spec
             )
-        except Exception as latex_error:
-            # Fallback to ReportLab if LaTeX fails
-            print(f"LaTeX generation failed: {latex_error}, falling back to ReportLab")
-            worksheet_gen = WorksheetGenerator()
+        except Exception as reportlab_error:
+            # Fallback to LaTeX if ReportLab fails
+            print(f"ReportLab generation failed: {reportlab_error}, falling back to LaTeX")
+            worksheet_gen = LaTeXWorksheetGenerator()
             layout_style = KUMON_LEVELS[level]["layout_style"]
             pdf_path = worksheet_gen.generate_pdf(
                 problems=problems,

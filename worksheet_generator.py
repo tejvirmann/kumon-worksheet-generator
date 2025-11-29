@@ -43,6 +43,25 @@ class WorksheetGenerator:
         """Setup text styles based on Kumon worksheet design"""
         self.styles = getSampleStyleSheet()
         
+        # Try to register Comic Sans or use fallback
+        self.comic_sans_font = 'Helvetica'  # Default fallback
+        try:
+            # Common Comic Sans locations
+            comic_sans_paths = [
+                '/System/Library/Fonts/Supplemental/Comic Sans MS.ttf',
+                '/Library/Fonts/Comic Sans MS.ttf',
+                '/usr/share/fonts/truetype/comicsansms.ttf',
+                'C:/Windows/Fonts/comicsans.ttf',
+                'C:/Windows/Fonts/comic.ttf',
+            ]
+            for path in comic_sans_paths:
+                if os.path.exists(path):
+                    pdfmetrics.registerFont(TTFont('ComicSans', path))
+                    self.comic_sans_font = 'ComicSans'
+                    break
+        except:
+            pass  # Use fallback
+        
         # Header styles
         self.styles.add(ParagraphStyle(
             name='KumonLogo',
@@ -62,6 +81,17 @@ class WorksheetGenerator:
             leading=18
         ))
         
+        # Level/Page number style with Comic Sans (top right)
+        self.styles.add(ParagraphStyle(
+            name='LevelPageNumber',
+            parent=self.styles['Normal'],
+            fontSize=12,
+            fontName=self.comic_sans_font,  # Comic Sans or fallback
+            textColor=HexColor(self.design.get('colors', {}).get('secondary', '#4B2E83')),
+            alignment=TA_RIGHT,
+            leading=16
+        ))
+        
         self.styles.add(ParagraphStyle(
             name='WorksheetTitle',
             parent=self.styles['Normal'],
@@ -74,6 +104,16 @@ class WorksheetGenerator:
         ))
         
         self.styles.add(ParagraphStyle(
+            name='WorksheetTitleInTable',
+            parent=self.styles['Normal'],
+            fontSize=16,
+            fontName='Helvetica-Bold',
+            textColor=HexColor(self.design.get('colors', {}).get('secondary', '#4B2E83')),
+            alignment=TA_CENTER,
+            leading=20
+        ))
+        
+        self.styles.add(ParagraphStyle(
             name='StudentField',
             parent=self.styles['Normal'],
             fontSize=11,
@@ -81,14 +121,32 @@ class WorksheetGenerator:
             leading=14
         ))
         
-        # Problem styles
         self.styles.add(ParagraphStyle(
-            name='Problem',
+            name='StudentFields',
             parent=self.styles['Normal'],
             fontSize=11,
             fontName='Helvetica',
+            alignment=TA_RIGHT,
+            leading=14
+        ))
+        
+        # Problem styles - font size varies by level
+        self.styles.add(ParagraphStyle(
+            name='Problem',
+            parent=self.styles['Normal'],
+            fontSize=11,  # Default, will be adjusted per level
+            fontName='Helvetica',
             alignment=TA_LEFT,
             leading=14
+        ))
+        
+        self.styles.add(ParagraphStyle(
+            name='ProblemAdvanced',
+            parent=self.styles['Normal'],
+            fontSize=10,  # Smaller for advanced levels
+            fontName='Helvetica',
+            alignment=TA_LEFT,
+            leading=13
         ))
         
         self.styles.add(ParagraphStyle(
@@ -109,7 +167,7 @@ class WorksheetGenerator:
             leading=16
         ))
     
-    def generate_pdf(self, problems, level, topic, layout_style='medium_spaced', page_number=1, output_dir='output'):
+    def generate_pdf(self, problems, level, topic, layout_style='medium_spaced', page_number=1, output_dir='output', layout_spec=None):
         """
         Generate a PDF worksheet with front and back pages matching Kumon style
         
@@ -129,16 +187,25 @@ class WorksheetGenerator:
         filename = f"kumon_level_{level}_{timestamp}.pdf"
         filepath = os.path.join(output_dir, filename)
         
-        # Determine layout type based on level
-        is_advanced_level = level in ['G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']
-        use_two_columns = is_advanced_level
+        # Determine layout type based on level or AI layout spec
+        if layout_spec:
+            # Use AI-generated layout specifications
+            use_two_columns = layout_spec.get('use_two_columns', False)
+            problem_font_size = layout_spec.get('font_size', 11)
+            problem_spacing = layout_spec.get('spacing_between_problems', 0.6)
+        else:
+            # Default based on level
+            is_advanced_level = level in ['G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']
+            use_two_columns = is_advanced_level
+            problem_font_size = 10 if is_advanced_level else 11
+            problem_spacing = 0.4 if is_advanced_level else 0.6
         
         doc = SimpleDocTemplate(
             filepath,
             pagesize=letter,
             rightMargin=0.75*inch,
             leftMargin=0.75*inch,
-            topMargin=0.75*inch,
+            topMargin=0.15*inch,  # Reduced from 0.75 to move content higher
             bottomMargin=0.75*inch,
             title=f"Kumon Level {level} - {topic}"
         )
@@ -158,7 +225,9 @@ class WorksheetGenerator:
         story.extend(self._create_problems_section(
             front_problems,
             use_two_columns=use_two_columns,
-            level=level
+            level=level,
+            problem_font_size=problem_font_size if layout_spec else None,
+            problem_spacing=problem_spacing if layout_spec else None
         ))
         
         story.append(PageBreak())
@@ -169,7 +238,9 @@ class WorksheetGenerator:
             back_problems,
             use_two_columns=use_two_columns,
             level=level,
-            start_number=len(front_problems) + 1
+            start_number=len(front_problems) + 1,
+            problem_font_size=problem_font_size if layout_spec else None,
+            problem_spacing=problem_spacing if layout_spec else None
         ))
         
         # Build PDF with custom footer
@@ -190,47 +261,48 @@ class WorksheetGenerator:
         canvas.restoreState()
     
     def _create_header(self, level, topic, page_num=1):
-        """Create the header section matching Kumon style"""
+        """Create the header section matching Kumon style - logo left, level/page right, title centered below"""
         content = []
         
-        # KUMON logo and level identifier (top left)
-        logo_text = f"<b>KUMON</b>®"
-        content.append(Paragraph(logo_text, self.styles['KumonLogo']))
-        content.append(Spacer(1, 0.1*inch))
-        
-        # Level identifier (e.g., "K 1 a" or "K 2 a")
+        # Level identifier for top right (e.g., "K 1a" or "K 2a")
         if page_num > 0 and hasattr(self, '_page_number'):
             page_identifier = f"{self._page_number}a"
         elif page_num > 0:
             page_identifier = "1a"
         else:
             page_identifier = ""
-        level_id = f"<b>{level} {page_identifier}</b>" if page_identifier else f"<b>{level}</b>"
-        content.append(Paragraph(level_id, self.styles['LevelIdentifier']))
-        content.append(Spacer(1, 0.15*inch))
+        level_page_text = f"{level} {page_identifier}" if page_identifier else level
         
-        # Title (centered)
-        title_text = f"<b>{topic}</b>"
-        content.append(Paragraph(title_text, self.styles['WorksheetTitle']))
-        content.append(Spacer(1, 0.1*inch))
+        # First row: KUMON logo (left) and Level/Page number (right) with Comic Sans
+        header_row1_data = [[
+            Paragraph(f"<b>KUMON</b>®", self.styles['KumonLogo']),
+            Paragraph(level_page_text, self.styles['LevelPageNumber'])
+        ]]
         
-        # Student information fields
-        student_table_data = [
-            ['Time : to :', 'Date', 'Name']
-        ]
-        student_table = Table(student_table_data, colWidths=[2*inch, 1.5*inch, 2*inch])
-        student_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('LINEBELOW', (0, 0), (-1, -1), 0.5, black),
+        header_row1_table = Table(header_row1_data, colWidths=[4*inch, 4.5*inch])
+        header_row1_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
             ('LEFTPADDING', (0, 0), (-1, -1), 0),
             ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.05*inch),
         ]))
-        content.append(student_table)
-        content.append(Spacer(1, 0.15*inch))
+        content.append(header_row1_table)
+        content.append(Spacer(1, 0.05*inch))
         
-        # Performance tracking table
+        # Second row: Title (centered)
+        title_text = f"<b>{topic}</b>"
+        content.append(Paragraph(title_text, self.styles['WorksheetTitle']))
+        content.append(Spacer(1, 0.05*inch))
+        
+        # Third row: Student fields (Time, Date, Name)
+        student_text = "Time : <u>________</u> to : <u>________</u>  Date: <u>________</u>  Name: <u>________</u>"
+        content.append(Paragraph(student_text, self.styles['StudentFields']))
+        content.append(Spacer(1, 0.1*inch))
+        
+        # Performance tracking table (100%, 90%, 80%, 70%, 69%~)
         perf_table_data = [
             ['100%', '90%', '80%', '70%', '69%~'],
             ['(mistakes) 0', '—', '1', '—', '2~']
@@ -243,7 +315,7 @@ class WorksheetGenerator:
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 10),
             ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, 1), 10),
+            ('FONTSIZE', (0, 1), (-1, 1), 8),
             ('GRID', (0, 0), (-1, -1), 1, black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ROWBACKGROUNDS', (0, 0), (-1, -1), [HexColor('#F5F5F5'), white]),
@@ -265,9 +337,25 @@ class WorksheetGenerator:
         content.append(Spacer(1, 0.2*inch))
         return content
     
-    def _create_problems_section(self, problems, use_two_columns=False, level='', start_number=1):
-        """Create the problems section"""
+    def _create_problems_section(self, problems, use_two_columns=False, level='', start_number=1, problem_font_size=None, problem_spacing=None):
+        """Create the problems section - uses AI layout spec if provided"""
         content = []
+        
+        # Determine font size and spacing from AI layout spec or defaults
+        if problem_font_size:
+            # Create custom style with AI-specified font size
+            from reportlab.lib.styles import ParagraphStyle
+            custom_problem_style = ParagraphStyle(
+                name='CustomProblem',
+                parent=self.styles['Normal'],
+                fontSize=problem_font_size,
+                fontName='Helvetica',
+                alignment=TA_LEFT,
+                leading=int(problem_font_size * 1.2)
+            )
+            problem_style = custom_problem_style
+        else:
+            problem_style = self.styles['ProblemAdvanced'] if use_two_columns else self.styles['Problem']
         
         if use_two_columns and len(problems) > 3:
             # Two column layout for advanced levels
@@ -279,6 +367,9 @@ class WorksheetGenerator:
             max_problems = max(len(left_problems), len(right_problems))
             table_data = []
             
+            # Use AI-specified spacing or default for two-column
+            spacing = (problem_spacing * inch) if problem_spacing else 0.4*inch
+            
             for i in range(max_problems):
                 left_cell = ""
                 right_cell = ""
@@ -286,14 +377,14 @@ class WorksheetGenerator:
                 if i < len(left_problems):
                     left_para = Paragraph(
                         self._format_problem(left_problems[i], start_number + i),
-                        self.styles['Problem']
+                        problem_style
                     )
                     left_cell = left_para
                 
                 if i < len(right_problems):
                     right_para = Paragraph(
                         self._format_problem(right_problems[i], start_number + len(left_problems) + i),
-                        self.styles['Problem']
+                        problem_style
                     )
                     right_cell = right_para
                 
@@ -305,18 +396,21 @@ class WorksheetGenerator:
                 ('LEFTPADDING', (0, 0), (-1, -1), 0),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 10),
                 ('TOPPADDING', (0, 0), (-1, -1), 0.2*inch),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 0.4*inch),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0.4*inch),  # Proper spacing for two-column
             ]))
             content.append(problems_table)
         else:
-            # Single column layout
+            # Single column layout - use AI-generated spacing or default
+            spacing_value = problem_spacing if problem_spacing else (0.4 if use_two_columns else 0.6)
+            spacing = spacing_value * inch if isinstance(spacing_value, (int, float)) else spacing_value
+            
             for i, problem in enumerate(problems):
                 problem_para = Paragraph(
                     self._format_problem(problem, start_number + i),
-                    self.styles['Problem']
+                    problem_style
                 )
                 content.append(problem_para)
-                content.append(Spacer(1, 0.6*inch))
+                content.append(Spacer(1, spacing))
         
         return content
     
