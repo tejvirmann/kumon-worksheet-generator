@@ -164,6 +164,14 @@
         
         <div class="error" id="error"></div>
         <div class="success" id="success"></div>
+        
+        <div id="pdf-viewer-container" style="display: none; margin-top: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="margin: 0; color: #333;">Your Worksheet</h2>
+                <a id="download-link" href="#" download class="download-btn" style="background: #667eea; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Download PDF</a>
+            </div>
+            <iframe id="pdf-viewer" src="" style="width: 100%; height: 800px; border: 2px solid #e0e0e0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></iframe>
+        </div>
     </div>
     
     <script>
@@ -244,8 +252,32 @@
                 if (response.ok) {
                     loading.style.display = 'none';
                     success.style.display = 'block';
+                    success.innerHTML = `✅ Worksheet generated successfully!`;
+                    
+                    // Show embedded PDF viewer using base64 data
                     const filename = data.pdf_filename || data.pdf_path.split('/').pop();
-                    success.innerHTML = `✅ Worksheet generated successfully! <a href="/api/download/${filename}" download>Download PDF</a>`;
+                    const pdfViewer = document.getElementById('pdf-viewer');
+                    const pdfContainer = document.getElementById('pdf-viewer-container');
+                    const downloadLink = document.getElementById('download-link');
+                    
+                    // Use base64 PDF data for embedding
+                    if (data.pdf_data) {
+                        pdfViewer.src = `data:application/pdf;base64,${data.pdf_data}`;
+                        // Create download blob
+                        const pdfBlob = new Blob([atob(data.pdf_data)], { type: 'application/pdf' });
+                        const pdfUrl = URL.createObjectURL(pdfBlob);
+                        downloadLink.href = pdfUrl;
+                        downloadLink.download = filename;
+                    } else {
+                        // Fallback to API endpoint
+                        pdfViewer.src = `/api/view/${filename}`;
+                        downloadLink.href = `/api/download/${filename}`;
+                    }
+                    
+                    pdfContainer.style.display = 'block';
+                    
+                    // Scroll to PDF viewer
+                    pdfContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 } else {
                     throw new Error(data.error || 'Failed to generate worksheet');
                 }

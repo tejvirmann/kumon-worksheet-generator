@@ -71,25 +71,53 @@ def generate_worksheet():
             layout_style=layout_style
         )
         
-        # Extract just the filename for download
+        # Read PDF as base64 for embedding
+        import base64
+        with open(pdf_path, 'rb') as f:
+            pdf_data = base64.b64encode(f.read()).decode('utf-8')
+        
         pdf_filename = os.path.basename(pdf_path)
         
         return jsonify({
             "success": True,
             "pdf_path": pdf_path,
             "pdf_filename": pdf_filename,
+            "pdf_data": pdf_data,  # Base64 encoded PDF for embedding
             "problems": problems
         })
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/view/<filename>')
+def view_worksheet(filename):
+    """View generated worksheet PDF (for embedding)"""
+    file_path = os.path.join('output', filename)
+    if os.path.exists(file_path):
+        from flask import Response
+        with open(file_path, 'rb') as f:
+            pdf_data = f.read()
+        return Response(
+            pdf_data,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'inline; filename="{filename}"',
+                'X-Content-Type-Options': 'nosniff'
+            }
+        )
+    return jsonify({"error": "File not found"}), 404
+
 @app.route('/api/download/<filename>')
 def download_worksheet(filename):
     """Download generated worksheet PDF"""
     file_path = os.path.join('output', filename)
     if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
+        return send_file(
+            file_path,
+            as_attachment=True,
+            mimetype='application/pdf',
+            download_name=filename
+        )
     return jsonify({"error": "File not found"}), 404
 
 @app.route('/health')

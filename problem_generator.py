@@ -53,17 +53,26 @@ class ProblemGenerator:
         Returns:
             List of problem strings
         """
-        prompt = f"""Generate {num_problems} Kumon-style math problems for Level {level}, topic: {topic}.
+        prompt = f"""You are generating {num_problems} Kumon-style math problems for Level {level}, topic: {topic}.
 
-Requirements:
+CRITICAL REQUIREMENTS:
+- Generate ACTUAL math problems, NOT placeholders like "Problem 1" or "Solve this"
+- Each problem must be a complete, solvable mathematical expression
 - Problems should follow Kumon's incremental difficulty approach
-- Each problem should be on a separate line
 - Format problems exactly as they would appear on a Kumon worksheet
-- Use appropriate notation for the level (e.g., vertical format for Level B multiplication)
+- Use appropriate notation for the level (e.g., vertical format for Level B multiplication like "  3\\n× 4\\n---")
 - Problems should progress in small, manageable steps
-- Return ONLY the problems, one per line, no explanations
+- Return ONLY the problems, one per line, with NO numbering, NO explanations, NO labels
+- For algebra problems, include the full equation (e.g., "(x - 3) / 2 - (x - 5) / 6 =")
+- For multiplication, show the actual multiplication (e.g., "3 × 4 =")
 
-Generate the problems now:"""
+Example output format:
+3 × 4 =
+5 × 7 =
+(x - 3) / 2 - (x - 5) / 6 =
+2x + 5 = 11
+
+Generate {num_problems} problems now:"""
 
         try:
             response = self.client.chat.completions.create(
@@ -77,13 +86,37 @@ Generate the problems now:"""
             )
             
             problems_text = response.choices[0].message.content.strip()
-            problems = [p.strip() for p in problems_text.split('\n') if p.strip()]
             
-            # Ensure we have the right number of problems
-            while len(problems) < num_problems:
-                problems.extend(problems[:num_problems - len(problems)])
+            # Clean up the problems - remove numbering, labels, etc.
+            lines = problems_text.split('\n')
+            problems = []
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # Remove common prefixes like "1. ", "(1) ", "Problem 1: ", etc.
+                import re
+                line = re.sub(r'^(\d+[\.\)\:]|\(?\d+\)|Problem\s+\d+\:?\s*)', '', line, flags=re.IGNORECASE)
+                line = line.strip()
+                # Skip if it's just a placeholder or explanation
+                if line and not any(word in line.lower() for word in ['problem', 'solve', 'find', 'calculate', 'example', 'note']):
+                    problems.append(line)
             
-            return problems[:num_problems]
+            # Filter out invalid problems
+            valid_problems = [p for p in problems if p and len(p) > 2 and not p.startswith('Problem')]
+            
+            # If we got good problems, use them; otherwise generate fallback
+            if len(valid_problems) >= num_problems:
+                return valid_problems[:num_problems]
+            elif len(valid_problems) > 0:
+                # Fill remaining with variations
+                while len(valid_problems) < num_problems:
+                    valid_problems.extend(valid_problems[:num_problems - len(valid_problems)])
+                return valid_problems[:num_problems]
+            else:
+                # Fall back to generated problems
+                print("Warning: AI didn't generate valid problems, using fallback generator")
+                return self._generate_fallback_problems(level, topic, num_problems)
             
         except Exception as e:
             # Fallback: Generate simple problems if AI fails
@@ -92,15 +125,37 @@ Generate the problems now:"""
     
     def _generate_fallback_problems(self, level, topic, num_problems):
         """Generate basic problems as fallback"""
+        import random
         problems = []
+        
+        topic_lower = topic.lower()
+        
         for i in range(num_problems):
-            if "multiplication" in topic.lower() and level == "B":
-                # Simple multiplication problems
-                import random
+            if "multiplication" in topic_lower and level == "B":
                 a = random.randint(2, 9)
                 b = random.randint(2, 9)
                 problems.append(f"{a} × {b} =")
+            elif "addition" in topic_lower or level == "A":
+                a = random.randint(1, 15)
+                b = random.randint(1, 15)
+                problems.append(f"{a} + {b} =")
+            elif "subtraction" in topic_lower:
+                a = random.randint(10, 20)
+                b = random.randint(1, a-1)
+                problems.append(f"{a} - {b} =")
+            elif "fraction" in topic_lower or level in ["E", "F"]:
+                num1, den1 = random.randint(1, 9), random.randint(2, 9)
+                num2, den2 = random.randint(1, 9), random.randint(2, 9)
+                problems.append(f"{num1}/{den1} + {num2}/{den2} =")
+            elif "equation" in topic_lower or level in ["G", "H", "I", "J", "K"]:
+                a, b = random.randint(1, 9), random.randint(1, 9)
+                c = random.randint(5, 20)
+                problems.append(f"{a}x + {b} = {c}")
             else:
-                problems.append(f"Problem {i+1}")
+                # Generic problem
+                a = random.randint(2, 10)
+                b = random.randint(2, 10)
+                problems.append(f"{a} × {b} =")
+        
         return problems
 
