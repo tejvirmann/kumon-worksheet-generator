@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kumon Worksheet Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            color: #667eea;
+        }
+        
+        .error {
+            display: none;
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .success {
+            display: none;
+            background: #efe;
+            color: #3c3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        #topic-select {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        #topic-select.enabled {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Kumon Worksheet Generator</h1>
+        <p class="subtitle">Generate custom Kumon-style math worksheets for any level and topic</p>
+        
+        <form id="worksheet-form">
+            <div class="form-group">
+                <label for="level-select">Select Level:</label>
+                <select id="level-select" name="level" required>
+                    <option value="">-- Choose a level --</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="topic-select">Select Topic:</label>
+                <select id="topic-select" name="topic" required disabled>
+                    <option value="">-- Choose a level first --</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="num-problems">Number of Problems:</label>
+                <input type="number" id="num-problems" name="num_problems" value="10" min="5" max="50" required>
+            </div>
+            
+            <button type="submit" id="generate-btn">Generate Worksheet</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <p>🔄 Generating your worksheet...</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        <div class="success" id="success"></div>
+    </div>
+    
+    <script>
+        // Load levels on page load
+        fetch('/api/levels')
+            .then(response => response.json())
+            .then(levels => {
+                const levelSelect = document.getElementById('level-select');
+                levels.forEach(level => {
+                    const option = document.createElement('option');
+                    option.value = level.id;
+                    option.textContent = `${level.name} (${level.category})`;
+                    levelSelect.appendChild(option);
+                });
+            });
+        
+        // Load topics when level is selected
+        document.getElementById('level-select').addEventListener('change', function() {
+            const level = this.value;
+            const topicSelect = document.getElementById('topic-select');
+            
+            if (!level) {
+                topicSelect.innerHTML = '<option value="">-- Choose a level first --</option>';
+                topicSelect.classList.remove('enabled');
+                topicSelect.disabled = true;
+                return;
+            }
+            
+            fetch(`/api/topics/${level}`)
+                .then(response => response.json())
+                .then(data => {
+                    topicSelect.innerHTML = '<option value="">-- Choose a topic --</option>';
+                    data.topics.forEach(topic => {
+                        const option = document.createElement('option');
+                        option.value = topic;
+                        option.textContent = topic;
+                        topicSelect.appendChild(option);
+                    });
+                    topicSelect.classList.add('enabled');
+                    topicSelect.disabled = false;
+                });
+        });
+        
+        // Handle form submission
+        document.getElementById('worksheet-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const level = document.getElementById('level-select').value;
+            const topic = document.getElementById('topic-select').value;
+            const numProblems = parseInt(document.getElementById('num-problems').value);
+            
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const success = document.getElementById('success');
+            const generateBtn = document.getElementById('generate-btn');
+            
+            // Reset UI
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            success.style.display = 'none';
+            generateBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        level: level,
+                        topic: topic,
+                        num_problems: numProblems
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    loading.style.display = 'none';
+                    success.style.display = 'block';
+                    const filename = data.pdf_filename || data.pdf_path.split('/').pop();
+                    success.innerHTML = `✅ Worksheet generated successfully! <a href="/api/download/${filename}" download>Download PDF</a>`;
+                } else {
+                    throw new Error(data.error || 'Failed to generate worksheet');
+                }
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = `Error: ${err.message}`;
+            } finally {
+                generateBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
+

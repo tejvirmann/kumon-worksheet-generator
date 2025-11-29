@@ -1,0 +1,115 @@
+{
+  "header": {
+    "logo": {
+      "font_family": "sans-serif",
+      "font_size": 18,
+      "font_weight": "bold",
+      "color": "#4B2E83",
+      "position": "top_left",
+      "includes_trademark": true
+    },
+    "level_identifier": {
+      "font_family": "sans-serif",
+      "font_size": 14,
+      "font_weight": "bold",
+      "color": "#4B2E83",
+      "position": "below_logo",
+      "format": "{level} {number} {letter}"
+    },
+    "level_reference": {
+      "font_family": "sans-serif",
+      "font_size": 10,
+      "font_weight": "regular",
+      "color": "#4B2E83",
+      "position": "top_right"
+    },
+    "title": {
+      "font_family": "sans-serif",
+      "font_size": 16,
+      "font_weight": "bold",
+      "color": "#4B2E83",
+      "position": "centered_below_logo",
+      "alignment": "center"
+    },
+    "student_fields": {
+      "fields": ["Time : to :", "Date", "Name"],
+      "font_family": "sans-serif",
+      "font_size": 11,
+      "spacing": "horizontal",
+      "underline": true
+    },
+    "performance_table": {
+      "columns": ["100%", "90%", "80%", "70%", "69%~"],
+      "background_color": "#E0E0E0",
+      "border_color": "#000000",
+      "font_size": 10,
+      "mistake_labels": {
+        "100%": "(mistakes) 0",
+        "90%": "—",
+        "80%": "1",
+        "70%": "2",
+        "69%~": "3~"
+      }
+    }
+  },
+  "typography": {
+    "base_font": "sans-serif",
+    "instruction_font_size": 12,
+    "problem_font_size": {
+      "level_h_simple": 11,
+      "level_k_complex": 10
+    },
+    "problem_number_font_size": 11,
+    "problem_number_style": "bold",
+    "problem_number_format": "({number})"
+  },
+  "spacing": {
+    "margin_top": 0.75,
+    "margin_bottom": 0.75,
+    "margin_left": 0.75,
+    "margin_right": 0.75,
+    "header_to_instruction": 0.4,
+    "instruction_to_problems": 0.3,
+    "problem_vertical_spacing": {
+      "level_h_simple": 0.6,
+      "level_k_complex": 0.4
+    },
+    "problem_horizontal_spacing": {
+      "two_column": 1.5
+    }
+  },
+  "layouts": {
+    "level_h_simple": {
+      "problem_arrangement": "single_column",
+      "problems_per_page": 6,
+      "font_size": 11,
+      "spacing": "generous",
+      "alignment": "left"
+    },
+    "level_k_complex": {
+      "problem_arrangement": "two_column",
+      "problems_per_page": 6,
+      "font_size": 10,
+      "spacing": "compact",
+      "alignment": "left",
+      "supports_graphs": true,
+      "supports_examples": true
+    }
+  },
+  "footer": {
+    "copyright_text": "© 2002 Kumon Institute of Education",
+    "print_info": "Printed in USA",
+    "font_size": 6,
+    "color": "#808080",
+    "position": "left_margin_vertical",
+    "rotation": -90
+  },
+  "colors": {
+    "primary": "#000000",
+    "secondary": "#4B2E83",
+    "background": "#FFFFFF",
+    "table_bg": "#E0E0E0",
+    "footer_text": "#808080"
+  }
+}
+

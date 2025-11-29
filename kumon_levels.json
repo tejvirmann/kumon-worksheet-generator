@@ -1,0 +1,222 @@
+{
+  "6A": {
+    "name": "Level 6A",
+    "category": "Preschool",
+    "topics": [
+      "Counting to 10",
+      "Number recognition 1-10",
+      "Tracing numbers"
+    ],
+    "layout_style": "large_spaced"
+  },
+  "5A": {
+    "name": "Level 5A",
+    "category": "Preschool",
+    "topics": [
+      "Line drawing",
+      "Number puzzles to 50",
+      "Number sequencing"
+    ],
+    "layout_style": "large_spaced"
+  },
+  "4A": {
+    "name": "Level 4A",
+    "category": "Preschool",
+    "topics": [
+      "Reciting and writing numbers up to 50",
+      "Number recognition 1-50"
+    ],
+    "layout_style": "large_spaced"
+  },
+  "3A": {
+    "name": "Level 3A",
+    "category": "Preschool",
+    "topics": [
+      "Numbers up to 120",
+      "Adding up to 3",
+      "Basic counting sequences"
+    ],
+    "layout_style": "large_spaced"
+  },
+  "2A": {
+    "name": "Level 2A",
+    "category": "Preschool",
+    "topics": [
+      "Adding up to 10",
+      "Horizontal addition"
+    ],
+    "layout_style": "large_spaced"
+  },
+  "A": {
+    "name": "Level A",
+    "category": "Elementary",
+    "topics": [
+      "Horizontal addition up to 20",
+      "Horizontal subtraction from numbers up to 20",
+      "Number bonds"
+    ],
+    "layout_style": "medium_spaced"
+  },
+  "B": {
+    "name": "Level B",
+    "category": "Elementary",
+    "topics": [
+      "Vertical addition",
+      "Vertical subtraction",
+      "Multiplication tables (1-10)",
+      "Single-digit multiplication"
+    ],
+    "layout_style": "medium_spaced"
+  },
+  "C": {
+    "name": "Level C",
+    "category": "Elementary",
+    "topics": [
+      "Basic multiplication",
+      "Basic division",
+      "Multiplication facts",
+      "Division facts"
+    ],
+    "layout_style": "medium_spaced"
+  },
+  "D": {
+    "name": "Level D",
+    "category": "Elementary",
+    "topics": [
+      "Long multiplication",
+      "Long division",
+      "Introduction to fractions",
+      "Multi-digit operations"
+    ],
+    "layout_style": "medium_compact"
+  },
+  "E": {
+    "name": "Level E",
+    "category": "Elementary",
+    "topics": [
+      "Adding fractions",
+      "Subtracting fractions",
+      "Multiplying fractions",
+      "Dividing fractions",
+      "Mixed numbers"
+    ],
+    "layout_style": "medium_compact"
+  },
+  "F": {
+    "name": "Level F",
+    "category": "Elementary",
+    "topics": [
+      "Four operations of fractions",
+      "Decimals",
+      "Decimal operations",
+      "Fraction-decimal conversion"
+    ],
+    "layout_style": "medium_compact"
+  },
+  "G": {
+    "name": "Level G",
+    "category": "Middle School",
+    "topics": [
+      "Positive and negative numbers",
+      "Exponents",
+      "Algebraic expressions",
+      "Pre-algebra",
+      "Order of operations"
+    ],
+    "layout_style": "compact"
+  },
+  "H": {
+    "name": "Level H",
+    "category": "Middle School",
+    "topics": [
+      "Linear equations",
+      "Simultaneous equations",
+      "Inequalities",
+      "Functions and graphs",
+      "Slope and intercept",
+      "Graphing linear equations"
+    ],
+    "layout_style": "compact"
+  },
+  "I": {
+    "name": "Level I",
+    "category": "Middle School",
+    "topics": [
+      "Factorization",
+      "Square roots",
+      "Quadratic equations",
+      "Pythagorean theorem",
+      "Factoring polynomials"
+    ],
+    "layout_style": "compact"
+  },
+  "J": {
+    "name": "Level J",
+    "category": "Middle School",
+    "topics": [
+      "Advanced algebra",
+      "Rational expressions",
+      "Systems of equations",
+      "Complex numbers"
+    ],
+    "layout_style": "compact"
+  },
+  "K": {
+    "name": "Level K",
+    "category": "High School",
+    "topics": [
+      "Quadratic functions",
+      "Fractional functions",
+      "Irrational functions",
+      "Exponential functions",
+      "Function transformations"
+    ],
+    "layout_style": "compact"
+  },
+  "L": {
+    "name": "Level L",
+    "category": "High School",
+    "topics": [
+      "Logarithms",
+      "Basic limits",
+      "Derivatives",
+      "Integrals",
+      "Applications of derivatives and integrals"
+    ],
+    "layout_style": "compact"
+  },
+  "M": {
+    "name": "Level M",
+    "category": "High School",
+    "topics": [
+      "Trigonometry",
+      "Straight lines",
+      "Equation of circles",
+      "Trigonometric functions"
+    ],
+    "layout_style": "compact"
+  },
+  "N": {
+    "name": "Level N",
+    "category": "High School",
+    "topics": [
+      "Loci",
+      "Limits of functions",
+      "Sequences",
+      "Differentiation"
+    ],
+    "layout_style": "compact"
+  },
+  "O": {
+    "name": "Level O",
+    "category": "High School",
+    "topics": [
+      "Advanced differentiation",
+      "Integration",
+      "Applications of calculus",
+      "Differential equations"
+    ],
+    "layout_style": "compact"
+  }
+}
+
