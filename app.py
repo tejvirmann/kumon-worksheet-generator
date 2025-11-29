@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, jsonify, send_file
 import json
 import os
 from worksheet_generator import WorksheetGenerator
+from latex_generator import LaTeXWorksheetGenerator
 from problem_generator import ProblemGenerator
 from config import config
 
@@ -61,15 +62,27 @@ def generate_worksheet():
             num_problems=num_problems
         )
         
-        # Generate worksheet
-        worksheet_gen = WorksheetGenerator()
-        layout_style = KUMON_LEVELS[level]["layout_style"]
-        pdf_path = worksheet_gen.generate_pdf(
-            problems=problems,
-            level=level,
-            topic=topic,
-            layout_style=layout_style
-        )
+        # Generate worksheet using LaTeX
+        try:
+            worksheet_gen = LaTeXWorksheetGenerator()
+            layout_style = KUMON_LEVELS[level]["layout_style"]
+            pdf_path = worksheet_gen.generate_pdf(
+                problems=problems,
+                level=level,
+                topic=topic,
+                layout_style=layout_style
+            )
+        except Exception as latex_error:
+            # Fallback to ReportLab if LaTeX fails
+            print(f"LaTeX generation failed: {latex_error}, falling back to ReportLab")
+            worksheet_gen = WorksheetGenerator()
+            layout_style = KUMON_LEVELS[level]["layout_style"]
+            pdf_path = worksheet_gen.generate_pdf(
+                problems=problems,
+                level=level,
+                topic=topic,
+                layout_style=layout_style
+            )
         
         # Read PDF as base64 for embedding
         import base64
@@ -86,6 +99,47 @@ def generate_worksheet():
             "problems": problems
         })
         
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/generate-print-layout', methods=['POST'])
+def generate_print_layout():
+    """Generate 2-up print layout PDF from existing worksheet"""
+    data = request.json
+    worksheet_filename = data.get('filename')
+    
+    if not worksheet_filename:
+        return jsonify({"error": "Worksheet filename is required"}), 400
+    
+    try:
+        from print_layout import PrintLayoutGenerator
+        
+        worksheet_path = os.path.join('output', worksheet_filename)
+        if not os.path.exists(worksheet_path):
+            return jsonify({"error": "Worksheet file not found"}), 404
+        
+        # Generate print layout
+        layout_gen = PrintLayoutGenerator()
+        print_path = layout_gen.create_2up_print_layout(worksheet_path)
+        
+        # Read PDF as base64
+        import base64
+        with open(print_path, 'rb') as f:
+            pdf_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        print_filename = os.path.basename(print_path)
+        
+        return jsonify({
+            "success": True,
+            "pdf_filename": print_filename,
+            "pdf_data": pdf_data
+        })
+        
+    except ImportError as e:
+        return jsonify({
+            "error": "Print layout requires pdf2image. Install with: pip install pdf2image",
+            "details": str(e)
+        }), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

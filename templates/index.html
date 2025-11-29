@@ -155,6 +155,13 @@
                 <input type="number" id="num-problems" name="num_problems" value="10" min="5" max="50" required>
             </div>
             
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="print-layout" name="print_layout">
+                    Generate 2-up print layout (two worksheets per page for double-sided printing)
+                </label>
+            </div>
+            
             <button type="submit" id="generate-btn">Generate Worksheet</button>
         </form>
         
@@ -166,11 +173,22 @@
         <div class="success" id="success"></div>
         
         <div id="pdf-viewer-container" style="display: none; margin-top: 30px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                 <h2 style="margin: 0; color: #333;">Your Worksheet</h2>
-                <a id="download-link" href="#" download class="download-btn" style="background: #667eea; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Download PDF</a>
+                <div style="display: flex; gap: 10px;">
+                    <a id="download-link" href="#" download class="download-btn" style="background: #667eea; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Download PDF</a>
+                    <button id="generate-print-layout-btn" style="background: #48bb78; color: white; padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Generate Print Layout (2-up)</button>
+                </div>
             </div>
             <iframe id="pdf-viewer" src="" style="width: 100%; height: 800px; border: 2px solid #e0e0e0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></iframe>
+            <div id="print-layout-container" style="display: none; margin-top: 30px;">
+                <h3 style="color: #333;">Print Layout (2-up)</h3>
+                <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
+                    This layout places two worksheets side-by-side. Print double-sided, then cut in half to get two complete worksheets.
+                </p>
+                <a id="download-print-link" href="#" download class="download-btn" style="background: #48bb78; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block; margin-bottom: 15px;">Download Print Layout PDF</a>
+                <iframe id="print-pdf-viewer" src="" style="width: 100%; height: 800px; border: 2px solid #e0e0e0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></iframe>
+            </div>
         </div>
     </div>
     
@@ -276,6 +294,9 @@
                     
                     pdfContainer.style.display = 'block';
                     
+                    // Store filename for print layout generation
+                    pdfContainer.dataset.filename = filename;
+                    
                     // Scroll to PDF viewer
                     pdfContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 } else {
@@ -287,6 +308,71 @@
                 error.textContent = `Error: ${err.message}`;
             } finally {
                 generateBtn.disabled = false;
+            }
+        });
+        
+        // Handle print layout generation
+        document.getElementById('generate-print-layout-btn').addEventListener('click', async function() {
+            const pdfContainer = document.getElementById('pdf-viewer-container');
+            const filename = pdfContainer.dataset.filename;
+            
+            if (!filename) {
+                alert('Please generate a worksheet first');
+                return;
+            }
+            
+            const btn = this;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+            
+            const printContainer = document.getElementById('print-layout-container');
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/generate-print-layout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filename: filename
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    loading.style.display = 'none';
+                    
+                    // Show print layout PDF
+                    const printViewer = document.getElementById('print-pdf-viewer');
+                    const printDownloadLink = document.getElementById('download-print-link');
+                    
+                    if (data.pdf_data) {
+                        printViewer.src = `data:application/pdf;base64,${data.pdf_data}`;
+                        const pdfBlob = new Blob([atob(data.pdf_data)], { type: 'application/pdf' });
+                        const pdfUrl = URL.createObjectURL(pdfBlob);
+                        printDownloadLink.href = pdfUrl;
+                        printDownloadLink.download = data.pdf_filename;
+                    }
+                    
+                    printContainer.style.display = 'block';
+                    printContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    throw new Error(data.error || 'Failed to generate print layout');
+                }
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = `Error: ${err.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
             }
         });
     </script>

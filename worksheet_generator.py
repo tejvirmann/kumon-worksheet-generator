@@ -309,7 +309,14 @@ class WorksheetGenerator:
     
     def _format_problem(self, problem_text, problem_number):
         """Format a single problem with Kumon-style numbering"""
-        return f"<b>({problem_number})</b> {problem_text}"
+        # Import math renderer for better math formatting
+        try:
+            from math_renderer import MathRenderer
+            formatted_text = MathRenderer.format_problem_text(problem_text)
+        except:
+            formatted_text = problem_text
+        
+        return f"<b>({problem_number})</b> {formatted_text}"
 
 
 
