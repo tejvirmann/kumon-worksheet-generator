@@ -109,7 +109,7 @@ class WorksheetGenerator:
             leading=16
         ))
     
-    def generate_pdf(self, problems, level, topic, layout_style='medium_spaced', output_dir='output'):
+    def generate_pdf(self, problems, level, topic, layout_style='medium_spaced', page_number=1, output_dir='output'):
         """
         Generate a PDF worksheet with front and back pages matching Kumon style
         
@@ -149,6 +149,9 @@ class WorksheetGenerator:
         mid_point = len(problems) // 2
         front_problems = problems[:mid_point]
         back_problems = problems[mid_point:]
+        
+        # Store page_number for use in headers
+        self._page_number = page_number
         
         # Front page
         story.extend(self._create_header(level, topic, page_num=1))
@@ -195,8 +198,14 @@ class WorksheetGenerator:
         content.append(Paragraph(logo_text, self.styles['KumonLogo']))
         content.append(Spacer(1, 0.1*inch))
         
-        # Level identifier (e.g., "K 91 a")
-        level_id = f"<b>{level} {page_num} a</b>" if page_num > 0 else f"<b>{level}</b>"
+        # Level identifier (e.g., "K 1 a" or "K 2 a")
+        if page_num > 0 and hasattr(self, '_page_number'):
+            page_identifier = f"{self._page_number}a"
+        elif page_num > 0:
+            page_identifier = "1a"
+        else:
+            page_identifier = ""
+        level_id = f"<b>{level} {page_identifier}</b>" if page_identifier else f"<b>{level}</b>"
         content.append(Paragraph(level_id, self.styles['LevelIdentifier']))
         content.append(Spacer(1, 0.15*inch))
         
@@ -245,9 +254,13 @@ class WorksheetGenerator:
         return content
     
     def _create_back_page_header(self, level):
-        """Create simplified header for back page"""
+        """Create simplified header for back page with page number (b)"""
         content = []
-        level_id = f"<b>{level}</b>"
+        # Add page number with 'b' suffix if available
+        if hasattr(self, '_page_number'):
+            level_id = f"<b>{level} {self._page_number} b</b>"
+        else:
+            level_id = f"<b>{level}</b>"
         content.append(Paragraph(level_id, self.styles['LevelIdentifier']))
         content.append(Spacer(1, 0.2*inch))
         return content

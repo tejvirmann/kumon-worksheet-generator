@@ -104,58 +104,119 @@ def generate_worksheet():
 
 @app.route('/api/generate-print-layout', methods=['POST'])
 def generate_print_layout():
-    """Generate 2-up print layout PDF from existing worksheet"""
+    """Generate 2-up print layout PDF - generates 2 worksheets and combines them"""
     data = request.json
-    worksheet_filename = data.get('filename')
+    level = data.get('level')
+    topic = data.get('topic')
+    num_problems = data.get('num_problems', 10)
     
-    if not worksheet_filename:
-        return jsonify({"error": "Worksheet filename is required"}), 400
+    if not level or not topic:
+        return jsonify({"error": "Level and topic are required"}), 400
     
     try:
-        worksheet_path = os.path.join('output', worksheet_filename)
-        if not os.path.exists(worksheet_path):
-            return jsonify({"error": "Worksheet file not found"}), 404
+        # Generate two worksheets with different problems
+        problem_gen = ProblemGenerator()
         
-        # Try LaTeX first, fallback to ReportLab with pdf2image
+        # Generate first worksheet
+        problems1 = problem_gen.generate_problems(level=level, topic=topic, num_problems=num_problems)
+        # Generate second worksheet (with different problems)
+        problems2 = problem_gen.generate_problems(level=level, topic=topic, num_problems=num_problems)
+        
+        # Generate both worksheets
+        from latex_generator import LaTeXWorksheetGenerator
+        from worksheet_generator import WorksheetGenerator
+        
+        worksheet_gen_latex = LaTeXWorksheetGenerator()
+        worksheet_gen_reportlab = WorksheetGenerator()
+        layout_style = KUMON_LEVELS[level]["layout_style"]
+        
+        # Generate worksheet 1 (pages 1a and 1b)
+        try:
+            pdf_path1 = worksheet_gen_latex.generate_pdf(
+                problems=problems1,
+                level=level,
+                topic=topic,
+                layout_style=layout_style,
+                page_number=1,
+                output_dir=app.config['OUTPUT_DIR']
+            )
+        except Exception:
+            pdf_path1 = worksheet_gen_reportlab.generate_pdf(
+                problems=problems1,
+                level=level,
+                topic=topic,
+                layout_style=layout_style,
+                page_number=1,
+                output_dir=app.config['OUTPUT_DIR']
+            )
+        
+        # Generate worksheet 2 (pages 2a and 2b)
+        try:
+            pdf_path2 = worksheet_gen_latex.generate_pdf(
+                problems=problems2,
+                level=level,
+                topic=topic,
+                layout_style=layout_style,
+                page_number=2,
+                output_dir=app.config['OUTPUT_DIR']
+            )
+        except Exception:
+            pdf_path2 = worksheet_gen_reportlab.generate_pdf(
+                problems=problems2,
+                level=level,
+                topic=topic,
+                layout_style=layout_style,
+                page_number=2,
+                output_dir=app.config['OUTPUT_DIR']
+            )
+        
+        # Create 2-up print layout with both worksheets
         print_path = None
         last_error = None
         
-        # Try LaTeX first
+        # Try simple PDF layout first (uses pdf2image + ReportLab, most reliable)
         try:
-            from latex_print_layout import LaTeXPrintLayoutGenerator
-            layout_gen = LaTeXPrintLayoutGenerator()
-            print_path = layout_gen.create_2up_print_layout(worksheet_path)
-        except Exception as latex_error:
-            last_error = latex_error
-            # Fallback to ReportLab-based print layout (requires pdf2image)
-            print(f"LaTeX print layout failed: {latex_error}, trying ReportLab fallback...")
+            from pdf_2up_layout import create_2up_print_layout
+            print_path = create_2up_print_layout(pdf_path1, pdf_path2)
+        except Exception as simple_error:
+            last_error = simple_error
+            print(f"Simple 2-up layout failed: {simple_error}, trying LaTeX...")
+            # Try LaTeX
             try:
-                from print_layout import PrintLayoutGenerator
-                layout_gen = PrintLayoutGenerator()
+                from latex_print_layout import LaTeXPrintLayoutGenerator
+                layout_gen = LaTeXPrintLayoutGenerator()
                 print_path = layout_gen.create_2up_print_layout(worksheet_path)
-            except Exception as reportlab_error:
-                last_error = reportlab_error
-                error_str = str(reportlab_error)
+            except Exception as latex_error:
+                last_error = latex_error
+                # Fallback to ReportLab-based print layout (requires pdf2image)
+                print(f"LaTeX print layout failed: {latex_error}, trying ReportLab fallback...")
+                try:
+                    from print_layout import PrintLayoutGenerator
+                    layout_gen = PrintLayoutGenerator()
+                    print_path = layout_gen.create_2up_print_layout(worksheet_path)
+                except Exception as reportlab_error:
+                    last_error = reportlab_error
+                    error_str = str(reportlab_error)
                 
-                # Provide helpful error message
-                if "pdf2image" in error_str or "poppler" in error_str.lower():
-                    error_msg = (
-                        "Print layout generation failed. The ReportLab fallback requires pdf2image.\n\n"
-                        "To fix, choose one:\n\n"
-                        "Option 1 (Recommended): Install LaTeX for best quality:\n"
-                        "  brew install --cask mactex\n\n"
-                        "Option 2: Install pdf2image for ReportLab fallback:\n"
-                        "  pip install pdf2image\n"
-                        "  brew install poppler\n\n"
-                        f"Original error: {error_str}"
-                    )
-                else:
-                    error_msg = (
-                        f"Print layout generation failed.\n\n"
-                        f"Error: {error_str}\n\n"
-                        f"Try installing LaTeX: brew install --cask mactex"
-                    )
-                raise RuntimeError(error_msg)
+                    # Provide helpful error message
+                    if "pdf2image" in error_str or "poppler" in error_str.lower():
+                        error_msg = (
+                            "Print layout generation failed. The ReportLab fallback requires pdf2image.\n\n"
+                            "To fix, choose one:\n\n"
+                            "Option 1 (Recommended): Install LaTeX for best quality:\n"
+                            "  brew install --cask mactex\n\n"
+                            "Option 2: Install pdf2image for ReportLab fallback:\n"
+                            "  pip install pdf2image\n"
+                            "  brew install poppler\n\n"
+                            f"Original error: {error_str}"
+                        )
+                    else:
+                        error_msg = (
+                            f"Print layout generation failed.\n\n"
+                            f"Error: {error_str}\n\n"
+                            f"Try installing LaTeX: brew install --cask mactex"
+                        )
+                    raise RuntimeError(error_msg)
         
         if print_path is None:
             raise RuntimeError("Failed to generate print layout")

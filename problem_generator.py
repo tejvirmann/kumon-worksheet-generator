@@ -32,9 +32,18 @@ class ProblemGenerator:
             )
         
         # Initialize OpenAI client (OpenRouter is OpenAI-compatible)
+        # OpenRouter may require additional headers
+        extra_headers = {}
+        if ai_provider == 'openrouter':
+            extra_headers = {
+                "HTTP-Referer": os.getenv('OPENROUTER_REFERER', 'http://localhost:5000'),
+                "X-Title": os.getenv('OPENROUTER_TITLE', 'Kumon Worksheet Generator')
+            }
+        
         self.client = OpenAI(
             api_key=api_key,
-            base_url=base_url
+            base_url=base_url,
+            default_headers=extra_headers if extra_headers else None
         )
         
         # Set model - use provided, env variable, or default
@@ -120,7 +129,22 @@ Generate {num_problems} problems now:"""
             
         except Exception as e:
             # Fallback: Generate simple problems if AI fails
+            error_msg = str(e)
             print(f"Error generating problems with AI: {e}")
+            
+            # Provide helpful error message for 401 errors
+            if "401" in error_msg or "User not found" in error_msg or "authentication" in error_msg.lower():
+                print("\n⚠️  OpenRouter API Authentication Error!")
+                print("This usually means:")
+                print("  1. Your API key is invalid or expired")
+                print("  2. Your OpenRouter account needs to be verified")
+                print("  3. You need to add credits to your OpenRouter account")
+                print("\nTo fix:")
+                print("  1. Check your API key at: https://openrouter.ai/keys")
+                print("  2. Verify your account is active")
+                print("  3. Make sure you have credits in your account")
+                print("\nUsing fallback problem generator for now...\n")
+            
             return self._generate_fallback_problems(level, topic, num_problems)
     
     def _generate_fallback_problems(self, level, topic, num_problems):

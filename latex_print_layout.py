@@ -74,39 +74,41 @@ class LaTeXPrintLayoutGenerator:
     def _generate_print_layout_latex(self, worksheet_pdf_path):
         """Generate LaTeX code that includes two copies of the worksheet side-by-side"""
         
-        # Escape path for LaTeX (replace backslashes, escape special chars)
-        escaped_path = worksheet_pdf_path.replace('\\', '/').replace('_', '\\_')
+        # Prepare path for LaTeX - use forward slashes
+        # For file paths in \includepdf, we should NOT escape underscores or most special chars
+        # Just ensure forward slashes - pdfpages handles file paths correctly
+        escaped_path = worksheet_pdf_path.replace('\\', '/')
         
-        # Use pdfpages package to include PDFs
+        # Use pdfpages with nup to arrange 2 pages side-by-side
+        # pages={1,1} includes page 1 twice, nup=2x1 arranges them horizontally
+        # File paths with underscores work fine in pdfpages - no need to escape
+        # Fill entire page - no margins or gaps
         latex = f"""\\documentclass[12pt]{{article}}
 \\usepackage[paper=letterpaper,margin=0in]{{geometry}}
 \\usepackage{{pdfpages}}
-\\usepackage{{graphicx}}
 
 \\pagestyle{{empty}}
-\\setlength{{\\parindent}}{{0pt}}
 
 \\begin{{document}}
 
-% Page 1: Two front pages side by side
-\\begin{{minipage}}[t]{{0.5\\textwidth}}
-\\includepdf[pages=1,scale=0.48,offset=0 0,noautoscale]{{{escaped_path}}}
-\\end{{minipage}}
-\\hfill
-\\begin{{minipage}}[t]{{0.5\\textwidth}}
-\\includepdf[pages=1,scale=0.48,offset=0 0,noautoscale]{{{escaped_path}}}
-\\end{{minipage}}
+% Page 1: Two front pages side by side - fill entire page
+% pages={{1,1}} includes page 1 twice, nup=2x1 arranges horizontally
+\\includepdf[
+    pages={{1,1}},
+    nup=2x1,
+    scale=1.0,
+    delta=0mm 0mm,
+    noautoscale=false
+]{{{escaped_path}}}
 
-\\newpage
-
-% Page 2: Two back pages side by side
-\\begin{{minipage}}[t]{{0.5\\textwidth}}
-\\includepdf[pages=2,scale=0.48,offset=0 0,noautoscale]{{{escaped_path}}}
-\\end{{minipage}}
-\\hfill
-\\begin{{minipage}}[t]{{0.5\\textwidth}}
-\\includepdf[pages=2,scale=0.48,offset=0 0,noautoscale]{{{escaped_path}}}
-\\end{{minipage}}
+% Page 2: Two back pages side by side - fill entire page
+\\includepdf[
+    pages={{2,2}},
+    nup=2x1,
+    scale=1.0,
+    delta=0mm 0mm,
+    noautoscale=false
+]{{{escaped_path}}}
 
 \\end{{document}}
 """

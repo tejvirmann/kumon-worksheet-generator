@@ -66,11 +66,12 @@ class PrintLayoutGenerator:
         page_width, page_height = self.page_width, self.page_height
         
         # Calculate dimensions for 2-up layout
-        # Each worksheet page takes up half the width
+        # Each worksheet page takes up exactly half the width
+        # Scale to fill half width while maintaining aspect ratio
         half_width = page_width / 2
-        scale_factor = (half_width - 0.2 * inch) / page_width  # Leave small gap between pages
-        scaled_width = page_width * scale_factor
-        scaled_height = page_height * scale_factor
+        scale_factor = half_width / page_width  # 0.5 (half width)
+        scaled_width = half_width
+        scaled_height = page_height * scale_factor  # Scale height proportionally
         
         # Convert PIL images to temporary buffers for ReportLab
         def pil_to_temp_file(pil_image, temp_path):
@@ -89,24 +90,25 @@ class PrintLayoutGenerator:
             back_image.save(back_temp_path, format='PNG')
         
         try:
-            # Page 1: Two front pages side by side
-            x_left = 0.1 * inch
-            y_top = page_height - scaled_height - 0.1 * inch
+            # Page 1: Two front pages side by side - fill half width each
+            x_left = 0
+            # Center vertically
+            y_top = (page_height - scaled_height) / 2
             
-            # Left front
+            # Left front - half width, proportional height
             can.drawImage(front_temp_path, x_left, y_top, width=scaled_width, height=scaled_height, preserveAspectRatio=True)
             
-            # Right front
-            x_right = half_width + 0.1 * inch
+            # Right front - half width, proportional height
+            x_right = half_width
             can.drawImage(front_temp_path, x_right, y_top, width=scaled_width, height=scaled_height, preserveAspectRatio=True)
             
             can.showPage()
             
-            # Page 2: Two back pages side by side
-            # Left back
+            # Page 2: Two back pages side by side - fill half width each
+            # Left back - half width, proportional height
             can.drawImage(back_temp_path, x_left, y_top, width=scaled_width, height=scaled_height, preserveAspectRatio=True)
             
-            # Right back
+            # Right back - half width, proportional height
             can.drawImage(back_temp_path, x_right, y_top, width=scaled_width, height=scaled_height, preserveAspectRatio=True)
             
             can.showPage()

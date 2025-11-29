@@ -79,7 +79,7 @@ class LaTeXWorksheetGenerator:
         
         return problem_text
     
-    def generate_pdf(self, problems, level, topic, layout_style='medium_spaced', output_dir='output'):
+    def generate_pdf(self, problems, level, topic, layout_style='medium_spaced', page_number=1, output_dir='output'):
         """
         Generate PDF worksheet using LaTeX
         
@@ -88,6 +88,7 @@ class LaTeXWorksheetGenerator:
             level: Kumon level
             topic: Topic name
             layout_style: Layout style
+            page_number: Page number (1, 2, etc.) - used for page identifiers (1a/1b, 2a/2b)
             output_dir: Output directory
             
         Returns:
@@ -123,7 +124,8 @@ class LaTeXWorksheetGenerator:
             topic=topic,
             problem_font_size=problem_font_size,
             problem_spacing=problem_spacing,
-            use_two_columns=use_two_columns
+            use_two_columns=use_two_columns,
+            page_number=page_number
         )
         
         # Write LaTeX file
@@ -142,7 +144,7 @@ class LaTeXWorksheetGenerator:
         return pdf_path
     
     def _generate_latex_content(self, problems, front_problems, back_problems, level, topic, 
-                                problem_font_size, problem_spacing, use_two_columns):
+                                problem_font_size, problem_spacing, use_two_columns, page_number=1):
         """Generate complete LaTeX document"""
         
         # Font colors
@@ -159,13 +161,19 @@ class LaTeXWorksheetGenerator:
         
         header_rgb = hex_to_xcolor(header_color)
         
+        # Format page identifiers
+        front_page_id = f"{level} {page_number} a"
+        back_page_id = f"{level} {page_number} b"
+        
         latex = f"""% Kumon Worksheet - Level {level}
 % Topic: {topic}
 % Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 % Compile with: xelatex or lualatex
 
 \\documentclass[12pt]{{article}}
-\\usepackage[paper=letterpaper,margin=0.75in]{{geometry}}
+\\usepackage[paper=letterpaper,top=0.3in,bottom=0.75in,left=0.75in,right=0.75in]{{geometry}}
+\\setlength{{\\topskip}}{{0pt}}
+\\setlength{{\\parskip}}{{0pt}}
 \\usepackage{{fontspec}}
 \\usepackage{{amsmath}}
 \\usepackage{{enumitem}}
@@ -197,11 +205,11 @@ class LaTeXWorksheetGenerator:
 
 % ==================== FRONT PAGE ====================
 
-% Header: Logo and level identifier (top-left) - ChatGPT layout
+% Header: Logo and level identifier (top-left) - at top of page, no extra spacing
 \\noindent
 \\begin{{minipage}}[t]{{0.25\\textwidth}}
-{{\\kumonlogo\\fontsize{{18}}{{22}}\\selectfont\\textcolor{{kumonpurple}}{{KUMON\\textregistered}}}}\\\\[2pt]
-{{\\kumonlevel\\fontsize{{14}}{{18}}\\selectfont\\textcolor{{kumonpurple}}{{{level} 1 a}}}}
+{{\\kumonlogo\\fontsize{{18}}{{22}}\\selectfont\\textcolor{{kumonpurple}}{{KUMON\\textregistered}}}}\\\\[1pt]
+{{\\kumonlevel\\fontsize{{14}}{{18}}\\selectfont\\textcolor{{kumonpurple}}{{{self.escape_latex(front_page_id)}}}}}
 \\end{{minipage}}
 \\hfill
 \\begin{{minipage}}[t]{{0.50\\textwidth}}
@@ -214,29 +222,29 @@ class LaTeXWorksheetGenerator:
 {{\\kumonfont\\fontsize{{10}}{{12}}\\selectfont\\textcolor{{kumonpurple}}{{{level}}}}}
 \\end{{minipage}}
 
-\\vspace{{0.2in}}
+\\vspace{{0.05in}}
 
-% Student information fields - ChatGPT format
-\\noindent{{\\kumonfont\\fontsize{{11}}{{14}}\\selectfont Time : \\underline{{\\hspace{{2cm}}}} to : \\underline{{\\hspace{{1.5cm}}}} \\quad Date: \\underline{{\\hspace{{2cm}}}} \\quad Name: \\underline{{\\hspace{{3cm}}}}}}
+% Student information fields - Arial regular weight (not bold)
+\\noindent{{\\sffamily\\fontsize{{11}}{{13}}\\selectfont Time : \\underline{{\\hspace{{2cm}}}} to : \\underline{{\\hspace{{1.5cm}}}} \\quad Date: \\underline{{\\hspace{{2cm}}}} \\quad Name: \\underline{{\\hspace{{3cm}}}}}}
 
-\\vspace{{0.15in}}
+\\vspace{{0.08in}}
 
-% Performance tracking table - ChatGPT format with proper boxes
+% Performance tracking table - percentages bold, mistake labels regular/small
 \\begin{{center}}
-{{\\kumonfont\\fontsize{{10}}{{12}}\\selectfont
-\\fbox{{\\parbox[c][1.4em][c]{{1.2in}}{{\\centering\\bfseries 100\\%\\\\\\normalfont\\small (mistakes) 0}}}}
+{{\\sffamily\\fontsize{{10}}{{12}}\\selectfont
+\\fbox{{\\parbox[c][1.5em][c]{{1.2in}}{{\\centering\\bfseries 100\\%\\\\\\normalfont\\small (mistakes) 0}}}}
 \\hspace{{4pt}}
-\\fbox{{\\parbox[c][1.4em][c]{{1.2in}}{{\\centering\\bfseries 90\\%\\\\\\normalfont\\small --}}}}
+\\fbox{{\\parbox[c][1.5em][c]{{1.2in}}{{\\centering\\bfseries 90\\%\\\\\\normalfont\\small --}}}}
 \\hspace{{4pt}}
-\\fbox{{\\parbox[c][1.4em][c]{{1.2in}}{{\\centering\\bfseries 80\\%\\\\\\normalfont\\small 1}}}}
+\\fbox{{\\parbox[c][1.5em][c]{{1.2in}}{{\\centering\\bfseries 80\\%\\\\\\normalfont\\small 1}}}}
 \\hspace{{4pt}}
-\\fbox{{\\parbox[c][1.4em][c]{{1.2in}}{{\\centering\\bfseries 70\\%\\\\\\normalfont\\small --}}}}
+\\fbox{{\\parbox[c][1.5em][c]{{1.2in}}{{\\centering\\bfseries 70\\%\\\\\\normalfont\\small --}}}}
 \\hspace{{4pt}}
-\\fbox{{\\parbox[c][1.4em][c]{{1.2in}}{{\\centering\\bfseries 69\\%\\sim\\\\\\normalfont\\small 2\\sim}}}}
+\\fbox{{\\parbox[c][1.5em][c]{{1.2in}}{{\\centering\\bfseries 69\\%\\sim\\\\\\normalfont\\small 2\\sim}}}}
 }}
 \\end{{center}}
 
-\\vspace{{0.3in}}
+\\vspace{{0.2in}}
 
 % Problems section
 """
@@ -261,9 +269,9 @@ class LaTeXWorksheetGenerator:
 
 % ==================== BACK PAGE ====================
 
-% Simplified header for back page
+% Simplified header for back page with page number (b)
 \\noindent
-{{\\kumonfont\\bfseries\\large\\textcolor{{kumonpurple}}{{{level}}}}}
+{{\\kumonfont\\bfseries\\large\\textcolor{{kumonpurple}}{{{self.escape_latex(back_page_id)}}}}}
 
 \\vspace{{0.2in}}
 

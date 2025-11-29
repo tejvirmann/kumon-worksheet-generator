@@ -158,7 +158,7 @@
             <div class="form-group">
                 <label>
                     <input type="checkbox" id="print-layout" name="print_layout">
-                    Generate 2-up print layout (two worksheets per page for double-sided printing)
+                    Generate double worksheet layout (two worksheets per page for double-sided printing)
                 </label>
             </div>
             
@@ -177,14 +177,14 @@
                 <h2 style="margin: 0; color: #333;">Your Worksheet</h2>
                 <div style="display: flex; gap: 10px;">
                     <a id="download-link" href="#" download class="download-btn" style="background: #667eea; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Download PDF</a>
-                    <button id="generate-print-layout-btn" style="background: #48bb78; color: white; padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Generate Print Layout (2-up)</button>
+                    <button id="generate-print-layout-btn" style="background: #48bb78; color: white; padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Generate Double Worksheet Layout</button>
                 </div>
             </div>
             <iframe id="pdf-viewer" src="" style="width: 100%; height: 800px; border: 2px solid #e0e0e0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></iframe>
             <div id="print-layout-container" style="display: none; margin-top: 30px;">
-                <h3 style="color: #333;">Print Layout (2-up)</h3>
+                <h3 style="color: #333;">Double Worksheet Layout</h3>
                 <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
-                    This layout places two worksheets side-by-side. Print double-sided, then cut in half to get two complete worksheets.
+                    Two worksheets stacked vertically (each rotated 90°). Print double-sided, then cut horizontally to get two complete worksheets.
                 </p>
                 <a id="download-print-link" href="#" download class="download-btn" style="background: #48bb78; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block; margin-bottom: 15px;">Download Print Layout PDF</a>
                 <iframe id="print-pdf-viewer" src="" style="width: 100%; height: 800px; border: 2px solid #e0e0e0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></iframe>
@@ -294,8 +294,11 @@
                     
                     pdfContainer.style.display = 'block';
                     
-                    // Store filename for print layout generation
+                    // Store worksheet info for print layout generation
                     pdfContainer.dataset.filename = filename;
+                    pdfContainer.dataset.level = document.getElementById('level-select').value;
+                    pdfContainer.dataset.topic = document.getElementById('topic-select').value;
+                    pdfContainer.dataset.numProblems = document.getElementById('num-problems').value || '10';
                     
                     // Scroll to PDF viewer
                     pdfContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -315,8 +318,11 @@
         document.getElementById('generate-print-layout-btn').addEventListener('click', async function() {
             const pdfContainer = document.getElementById('pdf-viewer-container');
             const filename = pdfContainer.dataset.filename;
+            const level = pdfContainer.dataset.level;
+            const topic = pdfContainer.dataset.topic;
+            const numProblems = pdfContainer.dataset.numProblems || '10';
             
-            if (!filename) {
+            if (!filename || !level || !topic) {
                 alert('Please generate a worksheet first');
                 return;
             }
@@ -340,7 +346,9 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        filename: filename
+                        level: level,
+                        topic: topic,
+                        num_problems: parseInt(numProblems)
                     })
                 });
                 
