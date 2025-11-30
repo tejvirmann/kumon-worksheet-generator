@@ -6,7 +6,8 @@ Creates Kumon-style worksheets with proper formatting and layout matching actual
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, Image as RLImage, BaseDocTemplate, PageTemplate, Frame
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, Image as RLImage, BaseDocTemplate, PageTemplate, Frame, Flowable
+from reportlab.lib.geomutils import *
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.lib.colors import black, HexColor, white
 from reportlab.pdfgen import canvas
@@ -130,23 +131,23 @@ class WorksheetGenerator:
             leading=14
         ))
         
-        # Problem styles - font size varies by level
+        # Problem styles - Times New Roman Italic, larger size
         self.styles.add(ParagraphStyle(
             name='Problem',
             parent=self.styles['Normal'],
-            fontSize=11,  # Default, will be adjusted per level
-            fontName='Helvetica',
+            fontSize=14,  # Larger size
+            fontName='Times-Italic',  # Italicized Times New Roman
             alignment=TA_LEFT,
-            leading=14
+            leading=18
         ))
         
         self.styles.add(ParagraphStyle(
             name='ProblemAdvanced',
             parent=self.styles['Normal'],
-            fontSize=10,  # Smaller for advanced levels
-            fontName='Helvetica',
+            fontSize=13,  # Slightly smaller for advanced, but still larger than before
+            fontName='Times-Italic',  # Italicized Times New Roman
             alignment=TA_LEFT,
-            leading=13
+            leading=17
         ))
         
         self.styles.add(ParagraphStyle(
@@ -261,66 +262,97 @@ class WorksheetGenerator:
         canvas.restoreState()
     
     def _create_header(self, level, topic, page_num=1):
-        """Create the header section matching Kumon style - logo left, level/page right, title centered below"""
+        """Create the header section matching exact Kumon style - hardcoded for efficiency"""
         content = []
         
-        # Level identifier for top right (e.g., "K 1a" or "K 2a")
+        # Sheet identifier (e.g., "C108a") - below logo
         if page_num > 0 and hasattr(self, '_page_number'):
             page_identifier = f"{self._page_number}a"
         elif page_num > 0:
             page_identifier = "1a"
         else:
             page_identifier = ""
-        level_page_text = f"{level} {page_identifier}" if page_identifier else level
+        sheet_id = f"{level}{page_identifier}" if page_identifier else level
         
-        # First row: KUMON logo (left) and Level/Page number (right) with Comic Sans
-        header_row1_data = [[
-            Paragraph(f"<b>KUMON</b>®", self.styles['KumonLogo']),
-            Paragraph(level_page_text, self.styles['LevelPageNumber'])
-        ]]
+        # Level identifier for top right (e.g., "C108")
+        level_ref = level
         
-        header_row1_table = Table(header_row1_data, colWidths=[4*inch, 4.5*inch])
-        header_row1_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+        # Hardcoded header layout - efficient, matches image exactly
+        # Row 1: KUMON logo (left) | Level reference (right)
+        logo_para = Paragraph(f"<b>KUMON</b>®", self.styles['KumonLogo'])
+        level_ref_para = Paragraph(level_ref, self.styles['LevelPageNumber'])
+        
+        header_row1 = Table([[logo_para, "", level_ref_para]], 
+                           colWidths=[2.2*inch, 3.8*inch, 2.5*inch])
+        header_row1.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
             ('LEFTPADDING', (0, 0), (-1, -1), 0),
             ('RIGHTPADDING', (0, 0), (-1, -1), 0),
             ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.05*inch),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
-        content.append(header_row1_table)
-        content.append(Spacer(1, 0.05*inch))
+        content.append(header_row1)
         
-        # Second row: Title (centered)
+        # Sheet ID below logo (on its own line)
+        sheet_id_para = Paragraph(f"<b>{sheet_id}</b>", self.styles['LevelIdentifier'])
+        content.append(sheet_id_para)
+        content.append(Spacer(1, 0.06*inch))
+        
+        # Title (centered) - large, bold
         title_text = f"<b>{topic}</b>"
         content.append(Paragraph(title_text, self.styles['WorksheetTitle']))
-        content.append(Spacer(1, 0.05*inch))
+        content.append(Spacer(1, 0.06*inch))
         
-        # Third row: Student fields (Time, Date, Name)
+        # Student fields (Time, Date, Name) - hardcoded format, left-aligned
         student_text = "Time : <u>________</u> to : <u>________</u>  Date: <u>________</u>  Name: <u>________</u>"
-        content.append(Paragraph(student_text, self.styles['StudentFields']))
-        content.append(Spacer(1, 0.1*inch))
+        student_style = ParagraphStyle(
+            name='StudentFieldsFixed',
+            parent=self.styles['Normal'],
+            fontSize=11,
+            fontName='Helvetica',
+            alignment=TA_LEFT,  # Left-aligned, not right
+            leading=14
+        )
+        content.append(Paragraph(student_text, student_style))
+        content.append(Spacer(1, 0.12*inch))
         
-        # Performance tracking table (100%, 90%, 80%, 70%, 69%~)
-        perf_table_data = [
-            ['100%', '90%', '80%', '70%', '69%~'],
-            ['(mistakes) 0', '—', '1', '—', '2~']
+        # Performance bar - hardcoded, efficient table
+        perf_bar_data = [
+            ['100%', '~90%', '~80%', '~70%', '69%~'],
+            ['(mistakes) 0', '1', '2~3', '4', '5~']
         ]
-        perf_table = Table(perf_table_data, colWidths=[1.5*inch]*5)
-        perf_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), HexColor(self.design.get('colors', {}).get('table_bg', '#E0E0E0'))),
-            ('TEXTCOLOR', (0, 0), (-1, -1), black),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        perf_bar_table = Table(perf_bar_data, colWidths=[1.4*inch]*5, rowHeights=[0.35*inch, 0.25*inch])
+        
+        # Hardcoded colors (static, won't change)
+        perf_colors = [
+            HexColor('#F5F5F5'), HexColor('#E8E8E8'), HexColor('#D0D0D0'),
+            HexColor('#B8B8B8'), HexColor('#A0A0A0')
+        ]
+        
+        # Hardcoded table style (static)
+        perf_bar_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), perf_colors[0]),
+            ('BACKGROUND', (1, 0), (1, 0), perf_colors[1]),
+            ('BACKGROUND', (2, 0), (2, 0), perf_colors[2]),
+            ('BACKGROUND', (3, 0), (3, 0), perf_colors[3]),
+            ('BACKGROUND', (4, 0), (4, 0), perf_colors[4]),
+            ('BACKGROUND', (0, 1), (0, 1), perf_colors[0]),
+            ('BACKGROUND', (1, 1), (1, 1), perf_colors[1]),
+            ('BACKGROUND', (2, 1), (2, 1), perf_colors[2]),
+            ('BACKGROUND', (3, 1), (3, 1), perf_colors[3]),
+            ('BACKGROUND', (4, 1), (4, 1), perf_colors[4]),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 10),
             ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, 1), 8),
-            ('GRID', (0, 0), (-1, -1), 1, black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [HexColor('#F5F5F5'), white]),
+            ('GRID', (0, 0), (-1, -1), 1, black),
+            ('LINEBELOW', (0, 0), (-1, 0), 2, black),
         ]))
-        content.append(perf_table)
+        content.append(perf_bar_table)
         content.append(Spacer(1, 0.3*inch))
         
         return content
@@ -342,14 +374,15 @@ class WorksheetGenerator:
         content = []
         
         # Determine font size and spacing from AI layout spec or defaults
+        # Always use Times-Italic for problems (matching Kumon style)
         if problem_font_size:
-            # Create custom style with AI-specified font size
+            # Create custom style with AI-specified font size, but use Times-Italic
             from reportlab.lib.styles import ParagraphStyle
             custom_problem_style = ParagraphStyle(
                 name='CustomProblem',
                 parent=self.styles['Normal'],
                 fontSize=problem_font_size,
-                fontName='Helvetica',
+                fontName='Times-Italic',  # Always Times-Italic
                 alignment=TA_LEFT,
                 leading=int(problem_font_size * 1.2)
             )
